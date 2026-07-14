@@ -108,12 +108,25 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
 
     await speech.listen(
       onResult: (result) {
+        debugPrint('Recognized speech: ${result.recognizedWords}');
+
         if (!mounted) {
           return;
         }
+        final ParsedVoiceTask parsedTask = VoiceTaskParser.parse(
+          result.recognizedWords,
+        );
 
         setState(() {
-          titleController.text = result.recognizedWords;
+          titleController.text = parsedTask.title;
+
+          if (parsedTask.eventDate != null) {
+            selectedDate = parsedTask.eventDate;
+          }
+
+          if (parsedTask.eventTime != null) {
+            selectedTime = parsedTask.eventTime;
+          }
 
           titleController.selection = TextSelection.fromPosition(
             TextPosition(offset: titleController.text.length),
