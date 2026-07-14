@@ -493,7 +493,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     final List<Reminder> visibleReminders = filteredReminders;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Smart Reminders')),
+      appBar: AppBar(title: const Text('Smart Tasks')),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -533,7 +533,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                     onPressed: createReminder,
                     icon: const Icon(Icons.mic, size: 28),
                     label: const Text(
-                      'Create Reminder',
+                      'Create Task',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,

@@ -34,7 +34,7 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   FeatureCard(
                     icon: Icons.notifications_active,
-                    title: 'Smart Reminders',
+                    title: 'Smart Tasks',
                     onTap: () {
                       Navigator.push(
                         context,
