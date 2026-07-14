@@ -7,11 +7,13 @@ import '../models/reminder.dart';
 class ReminderFormScreen extends StatefulWidget {
   final Reminder? existingReminder;
   final String? initialTitle;
+  final bool voiceMode;
 
   const ReminderFormScreen({
     super.key,
     this.existingReminder,
     this.initialTitle,
+    this.voiceMode = false,
   });
 
   bool get isEditing => existingReminder != null;
@@ -188,7 +190,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
     }
   }
 
-  void saveReminder() {
+  Future<void> saveReminder() async {
     final String title = titleController.text.trim();
 
     if (title.isEmpty || selectedDate == null || selectedTime == null) {
@@ -213,6 +215,59 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
       return;
     }
 
+    if (widget.voiceMode) {
+      final bool? confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Confirm Task'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Task: $title'),
+                const SizedBox(height: 10),
+                Text(
+                  'Date: ${selectedDate!.day}/'
+                  '${selectedDate!.month}/'
+                  '${selectedDate!.year}',
+                ),
+                const SizedBox(height: 10),
+                Text('Time: ${selectedTime!.format(context)}'),
+                const SizedBox(height: 16),
+                const Text(
+                  'Is this correct?',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext, false);
+                },
+                child: const Text('Edit'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext, true);
+                },
+                child: const Text('Confirm & Save'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirmed != true) {
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+    }
+
     final Reminder reminder;
 
     if (widget.existingReminder == null) {
@@ -233,6 +288,10 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
         priority: selectedPriority,
         isCompleted: false,
       );
+    }
+
+    if (!mounted) {
+      return;
     }
 
     Navigator.pop(context, reminder);
@@ -347,7 +406,13 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                 child: ElevatedButton.icon(
                   onPressed: saveReminder,
                   icon: Icon(isEditing ? Icons.update : Icons.save),
-                  label: Text(isEditing ? 'Update Reminder' : 'Save Reminder'),
+                  label: Text(
+                    isEditing
+                        ? 'Update Task'
+                        : widget.voiceMode
+                        ? 'Confirm & Save'
+                        : 'Save Task',
+                  ),
                 ),
               ),
             ],

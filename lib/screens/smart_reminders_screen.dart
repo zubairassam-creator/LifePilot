@@ -104,7 +104,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
 
     final Reminder? newReminder = await Navigator.push<Reminder>(
       context,
-      MaterialPageRoute(builder: (context) => const ReminderFormScreen()),
+      MaterialPageRoute(
+        builder: (context) => const ReminderFormScreen(voiceMode: true),
+      ),
     );
 
     if (newReminder == null) {
