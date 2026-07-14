@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../models/reminder.dart';
 
@@ -16,9 +17,13 @@ class ReminderFormScreen extends StatefulWidget {
 class _ReminderFormScreenState extends State<ReminderFormScreen> {
   final TextEditingController titleController = TextEditingController();
 
+  final stt.SpeechToText speech = stt.SpeechToText();
+
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   String selectedPriority = 'Medium';
+
+  bool isListening = false;
 
   @override
   void initState() {
@@ -36,8 +41,56 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
 
   @override
   void dispose() {
+    speech.stop();
     titleController.dispose();
     super.dispose();
+  }
+
+  Future<void> startListening() async {
+    final bool available = await speech.initialize();
+
+    if (!available) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Speech recognition is not available.')),
+      );
+
+      return;
+    }
+
+    setState(() {
+      isListening = true;
+    });
+
+    await speech.listen(
+      onResult: (result) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          titleController.text = result.recognizedWords;
+          titleController.selection = TextSelection.fromPosition(
+            TextPosition(offset: titleController.text.length),
+          );
+        });
+      },
+    );
+  }
+
+  Future<void> stopListening() async {
+    await speech.stop();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      isListening = false;
+    });
   }
 
   Future<void> selectDate() async {
@@ -149,15 +202,32 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Reminder Title',
-                  hintText: 'Example: Call the electricity office',
-                  border: OutlineInputBorder(),
+                  hintText: 'Type or speak your reminder',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    onPressed: isListening ? stopListening : startListening,
+                    icon: Icon(isListening ? Icons.mic : Icons.mic_none),
+                    tooltip: isListening ? 'Stop Listening' : 'Speak Reminder',
+                  ),
                 ),
               ),
+
+              if (isListening)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Listening... Speak now',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+
               const SizedBox(height: 16),
+
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.calendar_today),
@@ -172,7 +242,9 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: selectDate,
               ),
+
               const SizedBox(height: 8),
+
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.access_time),
@@ -185,7 +257,9 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: selectTime,
               ),
+
               const SizedBox(height: 16),
+
               DropdownButtonFormField<String>(
                 initialValue: selectedPriority,
                 decoration: const InputDecoration(
@@ -205,7 +279,9 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                   }
                 },
               ),
+
               const SizedBox(height: 24),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
