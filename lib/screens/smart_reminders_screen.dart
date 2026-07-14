@@ -511,11 +511,26 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                 ),
               ],
             ),
-      floatingActionButton: isLoading
+      bottomNavigationBar: isLoading
           ? null
-          : FloatingActionButton(
-              onPressed: createReminder,
-              child: const Icon(Icons.add),
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(40, 8, 40, 16),
+                child: SizedBox(
+                  height: 58,
+                  child: ElevatedButton.icon(
+                    onPressed: createReminder,
+                    icon: const Icon(Icons.mic, size: 28),
+                    label: const Text(
+                      'Create Reminder',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
     );
   }
