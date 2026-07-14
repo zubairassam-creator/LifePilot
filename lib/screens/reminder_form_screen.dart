@@ -44,6 +44,16 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
     } else if (widget.initialTitle != null) {
       titleController.text = widget.initialTitle!;
     }
+
+    if (widget.existingReminder == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Future.delayed(const Duration(milliseconds: 800));
+
+        if (mounted) {
+          startListening();
+        }
+      });
+    }
   }
 
   @override
@@ -54,7 +64,34 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
   }
 
   Future<void> startListening() async {
-    final bool available = await speech.initialize();
+    final bool available = await speech.initialize(
+      onStatus: (status) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          isListening = status == 'listening';
+        });
+
+        debugPrint('Speech status: $status');
+      },
+      onError: (error) {
+        debugPrint('Speech error: ${error.errorMsg}');
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          isListening = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Speech error: ${error.errorMsg}')),
+        );
+      },
+    );
 
     if (!available) {
       if (!mounted) {
@@ -68,10 +105,6 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
       return;
     }
 
-    setState(() {
-      isListening = true;
-    });
-
     await speech.listen(
       onResult: (result) {
         if (!mounted) {
@@ -80,11 +113,17 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
 
         setState(() {
           titleController.text = result.recognizedWords;
+
           titleController.selection = TextSelection.fromPosition(
             TextPosition(offset: titleController.text.length),
           );
         });
       },
+      listenOptions: stt.SpeechListenOptions(
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 5),
+        partialResults: true,
+      ),
     );
   }
 
