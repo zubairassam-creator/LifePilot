@@ -1,3 +1,4 @@
+import '../services/voice_service.dart';
 import 'package:flutter/material.dart';
 
 import '../models/reminder.dart';
@@ -95,6 +96,12 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
   }
 
   Future<void> createReminder() async {
+    await VoiceService.speak('Please tell me the reminder');
+
+    if (!mounted) {
+      return;
+    }
+
     final Reminder? newReminder = await Navigator.push<Reminder>(
       context,
       MaterialPageRoute(builder: (context) => const ReminderFormScreen()),
@@ -106,6 +113,10 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
 
     try {
       await NotificationService.scheduleReminder(newReminder);
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         reminders.add(newReminder);

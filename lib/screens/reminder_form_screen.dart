@@ -5,8 +5,13 @@ import '../models/reminder.dart';
 
 class ReminderFormScreen extends StatefulWidget {
   final Reminder? existingReminder;
+  final String? initialTitle;
 
-  const ReminderFormScreen({super.key, this.existingReminder});
+  const ReminderFormScreen({
+    super.key,
+    this.existingReminder,
+    this.initialTitle,
+  });
 
   bool get isEditing => existingReminder != null;
 
@@ -36,6 +41,8 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
       selectedDate = reminder.date;
       selectedTime = TimeOfDay(hour: reminder.hour, minute: reminder.minute);
       selectedPriority = reminder.priority;
+    } else if (widget.initialTitle != null) {
+      titleController.text = widget.initialTitle!;
     }
   }
 
