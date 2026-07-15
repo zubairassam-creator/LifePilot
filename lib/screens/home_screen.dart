@@ -16,15 +16,49 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(
+              child: Image.asset(
+                'assets/images/lifepilot_logo.png',
+                height: 110,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            const Center(
+              child: Text(
+                'LifePilot AI',
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+              ),
+            ),
+
+            const SizedBox(height: 4),
+
+            const Center(
+              child: Text(
+                'Your Personal Secretary',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
             const Text(
               'Good Day 👋',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
+
             const SizedBox(height: 5),
+
             const Text(
               'What would you like me to help you with?',
               style: TextStyle(fontSize: 16),
             ),
+
             const SizedBox(height: 25),
             Expanded(
               child: GridView.count(
