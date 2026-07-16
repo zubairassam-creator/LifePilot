@@ -8,6 +8,7 @@ import 'reminder_form_screen.dart';
 
 enum ReminderFilter { all, today, upcoming, missed, completed }
 
+// LifePilot Smart Tasks (reviewed base)
 class SmartRemindersScreen extends StatefulWidget {
   const SmartRemindersScreen({super.key});
 
@@ -18,7 +19,11 @@ class SmartRemindersScreen extends StatefulWidget {
 class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
   final List<Reminder> reminders = [];
 
+  final Set<int> selectedReminderIds = {};
+
   ReminderFilter selectedFilter = ReminderFilter.all;
+
+  bool selectionMode = false;
 
   bool isLoading = true;
 
@@ -506,11 +511,35 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                   child: visibleReminders.isEmpty
                       ? Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              getEmptyMessage(),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 18),
+                            padding: const EdgeInsets.symmetric(horizontal: 30),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.task_alt_rounded,
+                                  size: 90,
+                                  color: Colors.indigo.shade300,
+                                ),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'No Smart Tasks Yet',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'LifePilot AI will help you remember what matters.\nTap "Create Task" below to get started.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey.shade700,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         )

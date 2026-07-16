@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-
 import '../services/voice_service.dart';
 import '../widgets/feature_card.dart';
-import 'smart_reminders_screen.dart';
+import 'my_tasks_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -10,104 +9,150 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('LifePilot AI'), centerTitle: true),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Image.asset(
-                'assets/images/lifepilot_logo.png',
-                height: 110,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            const Center(
-              child: Text(
-                'LifePilot AI',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-              ),
-            ),
-
-            const SizedBox(height: 4),
-
-            const Center(
-              child: Text(
-                'Your Personal Secretary',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                  fontStyle: FontStyle.italic,
+      appBar: AppBar(
+        title: const Text('LifePilot AI'),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Brand Tagline
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    "Your Personal Secretary",
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 24),
+              // Header Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/images/lifepilot_logo.png',
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
 
-            const Text(
-              'Good Day 👋',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+                    const SizedBox(width: 24),
 
-            const SizedBox(height: 5),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Good Day 👋',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
 
-            const Text(
-              'What would you like me to help you with?',
-              style: TextStyle(fontSize: 16),
-            ),
+                          SizedBox(height: 6),
 
-            const SizedBox(height: 25),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 14,
-                children: [
-                  FeatureCard(
-                    icon: Icons.notifications_active,
-                    title: 'Smart Tasks',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SmartRemindersScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const FeatureCard(
-                    icon: Icons.note_alt,
-                    title: 'Memory Notes',
-                  ),
-                  const FeatureCard(
-                    icon: Icons.folder,
-                    title: 'Important Documents',
-                  ),
-                  const FeatureCard(icon: Icons.contacts, title: 'Contacts'),
-                  const FeatureCard(
-                    icon: Icons.wb_sunny,
-                    title: 'Daily Briefing',
-                  ),
-                  const FeatureCard(
-                    icon: Icons.auto_awesome,
-                    title: 'AI Assistant',
-                  ),
-                  FeatureCard(
-                    icon: Icons.record_voice_over,
-                    title: 'Test Voice',
-                    onTap: () async {
-                      await VoiceService.speak(
-                        'LifePilot voice reminder test is working',
-                      );
-                    },
-                  ),
-                ],
+                          Text(
+                            'What would you like me to help you with?',
+                            style: TextStyle(
+                              fontSize: 17,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 16),
+
+              Expanded(
+                child: GridView.count(
+                  physics: const BouncingScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.08,
+                  children: [
+                    FeatureCard(
+                      icon: Icons.notifications_active,
+                      title: 'Smart Tasks',
+                      subtitle: 'Never miss a task',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SmartRemindersScreen(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    const FeatureCard(
+                      icon: Icons.note_alt,
+                      title: 'Memory Notes',
+                      subtitle: 'Capture ideas',
+                    ),
+
+                    const FeatureCard(
+                      icon: Icons.folder,
+                      title: 'Important Documents',
+                      subtitle: 'Keep files safe',
+                    ),
+
+                    const FeatureCard(
+                      icon: Icons.contacts,
+                      title: 'Contacts',
+                      subtitle: 'People that matter',
+                    ),
+
+                    const FeatureCard(
+                      icon: Icons.wb_sunny,
+                      title: 'Daily Briefing',
+                      subtitle: 'Start your day',
+                    ),
+
+                    const FeatureCard(
+                      icon: Icons.auto_awesome,
+                      title: 'AI Assistant',
+                      subtitle: 'Ask anything',
+                    ),
+
+                    FeatureCard(
+                      icon: Icons.record_voice_over,
+                      title: 'Test Voice',
+                      subtitle: 'Check speech',
+                      onTap: () async {
+                        await VoiceService.speak(
+                          'LifePilot voice reminder test is working',
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

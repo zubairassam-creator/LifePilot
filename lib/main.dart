@@ -1,12 +1,29 @@
-import 'services/voice_service.dart';
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
+import 'models/lifepilot_task.dart';
 import 'screens/home_screen.dart';
 import 'services/notification_service.dart';
+import 'services/task_storage_service.dart';
+import 'services/voice_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Hive
+  await Hive.initFlutter();
+
+  // Register Hive adapters
+  Hive.registerAdapter(TaskPriorityAdapter());
+  Hive.registerAdapter(TaskStatusAdapter());
+  Hive.registerAdapter(ReminderModeAdapter());
+  Hive.registerAdapter(RepeatTypeAdapter());
+  Hive.registerAdapter(LifePilotTaskAdapter());
+
+  // Open Task Database
+  await TaskStorageService.initialize();
+
+  // Initialize Services
   await NotificationService.initialize();
   await VoiceService.initialize();
 

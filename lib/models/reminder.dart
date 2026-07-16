@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+enum NotificationMode { normal, speak, repeatSpeak, silent }
+
 class Reminder {
   final int id;
   final String title;
@@ -7,6 +9,9 @@ class Reminder {
   final int hour;
   final int minute;
   final String priority;
+
+  final NotificationMode notificationMode;
+
   bool isCompleted;
 
   Reminder({
@@ -16,6 +21,7 @@ class Reminder {
     required this.hour,
     required this.minute,
     required this.priority,
+    this.notificationMode = NotificationMode.normal,
     this.isCompleted = false,
   });
 
@@ -38,6 +44,7 @@ class Reminder {
     int? hour,
     int? minute,
     String? priority,
+    NotificationMode? notificationMode,
     bool? isCompleted,
   }) {
     return Reminder(
@@ -47,6 +54,7 @@ class Reminder {
       hour: hour ?? this.hour,
       minute: minute ?? this.minute,
       priority: priority ?? this.priority,
+      notificationMode: notificationMode ?? this.notificationMode,
       isCompleted: isCompleted ?? this.isCompleted,
     );
   }
@@ -59,11 +67,33 @@ class Reminder {
       'hour': hour,
       'minute': minute,
       'priority': priority,
+      'notificationMode': notificationMode.name,
       'isCompleted': isCompleted,
     };
   }
 
   factory Reminder.fromJson(Map<String, dynamic> json) {
+    NotificationMode mode = NotificationMode.normal;
+
+    final String? modeString = json['notificationMode'] as String?;
+
+    switch (modeString) {
+      case 'speak':
+        mode = NotificationMode.speak;
+        break;
+
+      case 'repeatSpeak':
+        mode = NotificationMode.repeatSpeak;
+        break;
+
+      case 'silent':
+        mode = NotificationMode.silent;
+        break;
+
+      default:
+        mode = NotificationMode.normal;
+    }
+
     return Reminder(
       id:
           json['id'] as int? ??
@@ -73,6 +103,7 @@ class Reminder {
       hour: json['hour'] as int,
       minute: json['minute'] as int,
       priority: json['priority'] as String,
+      notificationMode: mode,
       isCompleted: json['isCompleted'] as bool? ?? false,
     );
   }

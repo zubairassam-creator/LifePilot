@@ -1,3 +1,6 @@
+import '../services/secretary_engine.dart';
+import '../widgets/lifepilot_understanding_dialog.dart';
+import '../services/brain_engine.dart';
 import '../services/voice_task_parser.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -30,6 +33,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   String selectedPriority = 'Medium';
+  NotificationMode selectedNotificationMode = NotificationMode.normal;
 
   bool isListening = false;
 
@@ -44,6 +48,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
       selectedDate = reminder.date;
       selectedTime = TimeOfDay(hour: reminder.hour, minute: reminder.minute);
       selectedPriority = reminder.priority;
+      selectedNotificationMode = reminder.notificationMode;
     } else if (widget.initialTitle != null) {
       titleController.text = widget.initialTitle!;
     }
@@ -193,6 +198,18 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
   Future<void> saveReminder() async {
     final String title = titleController.text.trim();
 
+    final analysis = BrainEngine.analyze(title);
+
+    debugPrint('==============================');
+    debugPrint('LifePilot Brain Analysis');
+    debugPrint('Task Type : ${analysis.taskType}');
+    debugPrint('Category  : ${analysis.category}');
+    debugPrint('Priority  : ${analysis.priority}');
+    debugPrint('Person    : ${analysis.person}');
+    debugPrint('Document  : ${analysis.document}');
+    debugPrint('Confidence: ${analysis.confidence}');
+    debugPrint('==============================');
+
     if (title.isEmpty || selectedDate == null || selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter title, date, and time.')),
@@ -215,7 +232,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
       return;
     }
 
-    if (widget.voiceMode) {
+    /*if (widget.voiceMode) {
       final bool? confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) {
@@ -266,8 +283,31 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
       if (!mounted) {
         return;
       }
-    }
+    } */
 
+    final confirmed = await LifePilotUnderstandingDialog.show(
+      context,
+      analysis,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+    // Secretary Brain
+
+    final secretary = SecretaryEngine.process(title);
+
+    debugPrint('==============================');
+    debugPrint('SECRETARY ANALYSIS');
+    debugPrint('Task Type: ${secretary.analysis.taskType}');
+    debugPrint('Category: ${secretary.analysis.category}');
+    debugPrint('Priority: ${secretary.analysis.priority}');
+    debugPrint('Responsibility Score: ${secretary.responsibilityScore}');
+    debugPrint('Reminder Plan: ${secretary.reminderPlan}');
+    debugPrint('Requires Follow Up: ${secretary.requiresFollowUp}');
+    debugPrint('Morning Brief: ${secretary.showInMorningBrief}');
+    debugPrint('Speak Aloud: ${secretary.shouldSpeakAloud}');
+    debugPrint('==============================');
     final Reminder reminder;
 
     if (widget.existingReminder == null) {
@@ -286,6 +326,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
         hour: selectedTime!.hour,
         minute: selectedTime!.minute,
         priority: selectedPriority,
+        notificationMode: selectedNotificationMode,
         isCompleted: false,
       );
     }
@@ -399,6 +440,40 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                 },
               ),
 
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<NotificationMode>(
+                initialValue: selectedNotificationMode,
+                decoration: const InputDecoration(
+                  labelText: 'Notification Mode',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: NotificationMode.normal,
+                    child: Text('🔔 Normal'),
+                  ),
+                  DropdownMenuItem(
+                    value: NotificationMode.speak,
+                    child: Text('🗣 Speak Once'),
+                  ),
+                  DropdownMenuItem(
+                    value: NotificationMode.repeatSpeak,
+                    child: Text('📢 Speak Repeatedly'),
+                  ),
+                  DropdownMenuItem(
+                    value: NotificationMode.silent,
+                    child: Text('🔕 Silent'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      selectedNotificationMode = value;
+                    });
+                  }
+                },
+              ),
               const SizedBox(height: 24),
 
               SizedBox(
