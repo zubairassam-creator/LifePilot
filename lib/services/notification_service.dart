@@ -4,7 +4,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models/reminder.dart';
-import 'voice_service.dart';
+import 'voice_reminder_service.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin notificationsPlugin =
@@ -40,7 +40,7 @@ class NotificationService {
         final String? reminderTitle = response.payload;
 
         if (reminderTitle != null && reminderTitle.isNotEmpty) {
-          await VoiceService.speak('Reminder. $reminderTitle');
+          await VoiceReminderService.speakReminder(reminderTitle);
         }
       },
     );

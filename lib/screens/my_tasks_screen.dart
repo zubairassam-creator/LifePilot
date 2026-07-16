@@ -1,3 +1,4 @@
+import '../services/reminder_engine.dart';
 import '../services/voice_service.dart';
 import 'package:flutter/material.dart';
 
@@ -119,18 +120,16 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     }
 
     try {
-      await NotificationService.scheduleReminder(newReminder);
+      await ReminderEngine.create(
+        reminder: newReminder,
+        reminderList: reminders,
+      );
 
       if (!mounted) {
         return;
       }
 
-      setState(() {
-        reminders.add(newReminder);
-      });
-
-      await saveReminderList();
-
+      setState(() {});
       if (!mounted) {
         return;
       }
