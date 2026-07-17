@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'models/lifepilot_task.dart';
-import 'screens/home_screen.dart';
+import 'screens/secretary_screen.dart';
 import 'services/notification_service.dart';
 import 'services/task_storage_service.dart';
 import 'services/voice_service.dart';
@@ -42,7 +42,7 @@ class LifePilotApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const SecretaryScreen(),
     );
   }
 }

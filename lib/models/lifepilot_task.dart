@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 
 part 'lifepilot_task.g.dart';
@@ -61,7 +60,6 @@ enum RepeatType {
 }
 
 @HiveType(typeId: 4)
-@immutable
 class LifePilotTask extends HiveObject {
   @HiveField(0)
   final String id;
