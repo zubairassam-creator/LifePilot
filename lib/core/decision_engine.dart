@@ -1,5 +1,6 @@
-import 'lifepilot_core.dart';
+import '../services/ai_task_service.dart';
 import 'conversation_engine.dart';
+import 'lifepilot_core.dart';
 
 class DecisionEngine {
   Future<LifePilotResponse> execute({
@@ -8,11 +9,25 @@ class DecisionEngine {
   }) async {
     switch (intent) {
       case IntentType.reminder:
-        return LifePilotResponse(
-          success: true,
-          message: "Certainly. I'll help you create that reminder.",
-          data: {"action": "reminder", "input": originalInput},
-        );
+        try {
+          final task = await AITaskService.createTask(title: originalInput);
+
+          return LifePilotResponse(
+            success: true,
+            message: "Reminder saved successfully.",
+            data: {
+              "action": "reminder",
+              "taskId": task.id,
+              "title": task.title,
+            },
+          );
+        } catch (e) {
+          return LifePilotResponse(
+            success: false,
+            message: "Failed to save reminder.",
+            data: {"error": e.toString()},
+          );
+        }
 
       case IntentType.document:
         return LifePilotResponse(
@@ -42,7 +57,7 @@ class DecisionEngine {
           data: {"action": "question", "input": originalInput},
         );
 
-      default:
+      case IntentType.unknown:
         return LifePilotResponse(
           success: false,
           message: "I'm not sure I understood. Could you say that another way?",
