@@ -8,10 +8,15 @@ import '../services/task_storage_service.dart';
 import '../services/voice_service.dart';
 import 'reminder_form_screen.dart';
 
-enum ReminderFilter { all, today, upcoming, missed, completed }
+enum ReminderFilter { all, today, tomorrow, upcoming, missed, completed }
 
 class SmartRemindersScreen extends StatefulWidget {
-  const SmartRemindersScreen({super.key});
+  final ReminderFilter initialFilter;
+
+  const SmartRemindersScreen({
+    super.key,
+    this.initialFilter = ReminderFilter.all,
+  });
 
   @override
   State<SmartRemindersScreen> createState() => _SmartRemindersScreenState();
@@ -19,13 +24,18 @@ class SmartRemindersScreen extends StatefulWidget {
 
 class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
   final List<LifePilotTask> tasks = [];
-  ReminderFilter selectedFilter = ReminderFilter.all;
+  late ReminderFilter selectedFilter;
+  bool selectionMode = false;
+  String searchQuery = "";
+  bool sortAscending = true;
+  final Set<String> selectedTaskIds = {};
   bool isLoading = true;
   StreamSubscription<void>? _taskSubscription;
 
   @override
   void initState() {
     super.initState();
+    selectedFilter = widget.initialFilter;
     loadSavedTasks();
     _taskSubscription = TaskStorageService.watchTasks().listen((_) {
       loadSavedTasks();
@@ -78,6 +88,15 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
               !isMissed(task) &&
               isSameDay(due, now);
         }).toList();
+      case ReminderFilter.tomorrow:
+        result = tasks.where((task) {
+          final due = task.dueDateTime;
+          final tomorrow = DateTime(now.year, now.month, now.day + 1);
+          return task.status == TaskStatus.pending &&
+              due != null &&
+              !isMissed(task) &&
+              isSameDay(due, tomorrow);
+        }).toList();
       case ReminderFilter.upcoming:
         result = tasks.where((task) {
           final due = task.dueDateTime;
@@ -93,13 +112,26 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
             .toList();
     }
 
-    result.sort((first, second) {
+    final query = searchQuery.trim().toLowerCase();
+    final searched = query.isEmpty
+        ? result
+        : result
+              .where(
+                (task) =>
+                    task.title.toLowerCase().contains(query) ||
+                    task.description.toLowerCase().contains(query),
+              )
+              .toList();
+
+    searched.sort((first, second) {
       final firstDue = first.dueDateTime ?? first.createdAt;
       final secondDue = second.dueDateTime ?? second.createdAt;
-      return firstDue.compareTo(secondDue);
+      return sortAscending
+          ? firstDue.compareTo(secondDue)
+          : secondDue.compareTo(firstDue);
     });
 
-    return result;
+    return searched;
   }
 
   Future<void> createTask() async {
@@ -125,7 +157,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reminder saved and notification scheduled.')),
+        const SnackBar(
+          content: Text('Reminder saved and notification scheduled.'),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -195,7 +229,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('This reminder time has already passed. Please reschedule it.'),
+              content: Text(
+                'This reminder time has already passed. Please reschedule it.',
+              ),
             ),
           );
         }
@@ -256,6 +292,70 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     );
   }
 
+
+  Future<void> deleteTasksByScope(ReminderFilter scope) async {
+    final candidates = tasks.where((task) {
+      switch (scope) {
+        case ReminderFilter.completed:
+          return task.status == TaskStatus.completed;
+        case ReminderFilter.missed:
+          return isMissed(task);
+        case ReminderFilter.all:
+          return true;
+        case ReminderFilter.today:
+        case ReminderFilter.tomorrow:
+        case ReminderFilter.upcoming:
+          return false;
+      }
+    }).toList();
+
+    for (final task in candidates) {
+      await NotificationService.cancelTask(task);
+      await TaskStorageService.deleteTask(task.id);
+    }
+    await loadSavedTasks();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Deleted ${candidates.length} task(s).')),
+    );
+  }
+
+  Future<void> deleteSelectedTasks() async {
+    final selected = tasks
+        .where((task) => selectedTaskIds.contains(task.id))
+        .toList();
+    for (final task in selected) {
+      await NotificationService.cancelTask(task);
+      await TaskStorageService.deleteTask(task.id);
+    }
+    setState(() {
+      selectedTaskIds.clear();
+      selectionMode = false;
+    });
+    await loadSavedTasks();
+  }
+
+  void handleManageAction(String value) {
+    switch (value) {
+      case 'delete_completed':
+        deleteTasksByScope(ReminderFilter.completed);
+        return;
+      case 'delete_missed':
+        deleteTasksByScope(ReminderFilter.missed);
+        return;
+      case 'delete_all':
+        deleteTasksByScope(ReminderFilter.all);
+        return;
+      case 'select_multiple':
+        setState(() => selectionMode = !selectionMode);
+        return;
+      case 'sort':
+        setState(() => sortAscending = !sortAscending);
+        return;
+    }
+  }
+
   String formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
 
   String getPriorityName(TaskPriority priority) {
@@ -279,6 +379,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       case ReminderFilter.today:
         return 'Today';
 
+      case ReminderFilter.tomorrow:
+        return 'Tomorrow';
+
       case ReminderFilter.upcoming:
         return 'Upcoming';
 
@@ -297,6 +400,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
 
       case ReminderFilter.today:
         return 'No reminders for today.';
+
+      case ReminderFilter.tomorrow:
+        return 'No reminders for tomorrow.';
 
       case ReminderFilter.upcoming:
         return 'No upcoming reminders.';
@@ -341,9 +447,19 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: ListTile(
           leading: Checkbox(
-            value: task.status == TaskStatus.completed,
+            value: selectionMode
+                ? selectedTaskIds.contains(task.id)
+                : task.status == TaskStatus.completed,
             onChanged: (_) {
-              toggleCompleted(task);
+              if (selectionMode) {
+                setState(() {
+                  selectedTaskIds.contains(task.id)
+                      ? selectedTaskIds.remove(task.id)
+                      : selectedTaskIds.add(task.id);
+                });
+              } else {
+                toggleCompleted(task);
+              }
             },
           ),
           title: Text(
@@ -381,12 +497,15 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
               switch (value) {
                 case 'edit':
                   editTask(task);
+                  return;
 
                 case 'reschedule':
                   editTask(task);
+                  return;
 
                 case 'delete':
                   deleteTask(task);
+                  return;
               }
             },
             itemBuilder: (context) {
@@ -435,12 +554,56 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     final List<LifePilotTask> visibleTasks = filteredTasks;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('LifePilot Smart Tasks')),
+      appBar: AppBar(
+        title: const Text('LifePilot Smart Tasks'),
+        actions: [
+          if (selectionMode && selectedTaskIds.isNotEmpty)
+            IconButton(
+              tooltip: 'Delete selected',
+              onPressed: deleteSelectedTasks,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          PopupMenuButton<String>(
+            tooltip: 'Manage',
+            onSelected: handleManageAction,
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'delete_completed',
+                child: Text('Delete completed'),
+              ),
+              PopupMenuItem(value: 'delete_missed', child: Text('Delete missed')),
+              PopupMenuItem(value: 'delete_all', child: Text('Delete all')),
+              PopupMenuItem(
+                value: 'select_multiple',
+                child: Text('Select multiple'),
+              ),
+              PopupMenuItem(value: 'sort', child: Text('Sort tasks')),
+            ],
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [Icon(Icons.tune), SizedBox(width: 4), Text('Manage')],
+              ),
+            ),
+          ),
+        ],
+      ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 buildFilterBar(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search tasks',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) => setState(() => searchQuery = value),
+                  ),
+                ),
                 const Divider(),
                 Expanded(
                   child: visibleTasks.isEmpty
