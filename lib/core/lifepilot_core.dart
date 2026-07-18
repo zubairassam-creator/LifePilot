@@ -1,5 +1,4 @@
-import 'decision_engine.dart';
-import 'intent_engine.dart';
+import 'secretary_brain.dart';
 import 'memory_engine.dart';
 import 'secretary_intents.dart';
 
@@ -10,14 +9,12 @@ class LifePilotCore {
 
   LifePilotCore._internal();
 
-  final IntentEngine intents = const IntentEngine();
-  final DecisionEngine decision = const DecisionEngine();
+  final SecretaryBrain brain = SecretaryBrain();
   final MemoryEngine memory = MemoryEngine();
 
   Future<IntentResult> process(String input) async {
     memory.addUserMessage(input);
-    final recognized = intents.recognize(input);
-    final result = await decision.decide(recognized);
+    final result = await brain.processUserInput(input);
     memory.addAssistantMessage(result.response);
     return result;
   }

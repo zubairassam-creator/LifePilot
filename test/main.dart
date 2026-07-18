@@ -10,7 +10,7 @@ void main() {
 
     expect(find.text('LifePilot AI'), findsOneWidget);
     expect(
-      find.text('What would you like me to help you with?'),
+      find.text('Here is what needs attention now.'),
       findsOneWidget,
     );
   });

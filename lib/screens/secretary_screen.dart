@@ -102,6 +102,7 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
         );
         return;
       case SecretaryActionType.createReminder:
+        return;
       case SecretaryActionType.deleteTasks:
         await _deleteTasks(action.payload['scope'] as String?);
         return;

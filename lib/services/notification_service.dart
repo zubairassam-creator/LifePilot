@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -10,6 +11,9 @@ import 'voice_reminder_service.dart';
 class NotificationService {
   static final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
+
+  static const MethodChannel _spokenChannel =
+      MethodChannel('lifepilot/spoken_reminders');
 
   static const String channelId = 'lifepilot_reminders';
   static const String channelName = 'LifePilot Reminders';
@@ -109,8 +113,10 @@ class NotificationService {
       android: androidDetails,
     );
 
+    final notificationId = notificationIdForTask(task);
+
     await notificationsPlugin.zonedSchedule(
-      id: notificationIdForTask(task),
+      id: notificationId,
       title: 'LifePilot Reminder',
       body: task.title,
       scheduledDate: scheduledDate,
@@ -118,10 +124,20 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: task.title,
     );
+
+    if (task.reminderMode == ReminderMode.speakAloud) {
+      await scheduleSpokenReminder(
+        id: notificationId,
+        scheduledAt: dueDateTime,
+        text: task.title,
+      );
+    }
   }
 
   static Future<void> cancelTask(LifePilotTask task) async {
-    await notificationsPlugin.cancel(id: notificationIdForTask(task));
+    final notificationId = notificationIdForTask(task);
+    await notificationsPlugin.cancel(id: notificationId);
+    await cancelSpokenReminder(notificationId);
   }
 
   static Future<void> scheduleReminder(Reminder reminder) async {
@@ -166,5 +182,30 @@ class NotificationService {
 
   static Future<void> cancelReminder(int reminderId) async {
     await notificationsPlugin.cancel(id: reminderId);
+    await cancelSpokenReminder(reminderId);
+  }
+
+  static Future<void> scheduleSpokenReminder({
+    required int id,
+    required DateTime scheduledAt,
+    required String text,
+  }) async {
+    try {
+      await _spokenChannel.invokeMethod<void>('schedule', {
+        'id': id,
+        'atMillis': scheduledAt.millisecondsSinceEpoch,
+        'text': text,
+      });
+    } catch (_) {
+      // Non-Android platforms keep the normal notification fallback.
+    }
+  }
+
+  static Future<void> cancelSpokenReminder(int id) async {
+    try {
+      await _spokenChannel.invokeMethod<void>('cancel', {'id': id});
+    } catch (_) {
+      // Non-Android platforms keep the normal notification fallback.
+    }
   }
 }

@@ -309,8 +309,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       }
     }).toList();
 
+    if (!await confirmBulkDelete(candidates.length, getFilterName(scope))) return;
+
     for (final task in candidates) {
-      await NotificationService.cancelTask(task);
       await TaskStorageService.deleteTask(task.id);
     }
     await loadSavedTasks();
@@ -325,8 +326,8 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     final selected = tasks
         .where((task) => selectedTaskIds.contains(task.id))
         .toList();
+    if (!await confirmBulkDelete(selected.length, 'selected')) return;
     for (final task in selected) {
-      await NotificationService.cancelTask(task);
       await TaskStorageService.deleteTask(task.id);
     }
     setState(() {
@@ -334,6 +335,30 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       selectionMode = false;
     });
     await loadSavedTasks();
+  }
+
+  Future<bool> confirmBulkDelete(int count, String scope) async {
+    if (count == 0) return false;
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('Delete $scope tasks?'),
+          content: Text('This will delete $count task(s) and cancel their scheduled notifications. Other Life Memory records will be preserved.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    return shouldDelete ?? false;
   }
 
   void handleManageAction(String value) {
