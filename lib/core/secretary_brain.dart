@@ -73,7 +73,9 @@ class SecretaryBrain {
     }
 
     if (normalized.contains('birthday')) {
-      final person = RegExp(r'^([a-z ]+?)(?:s|\'s)? birthday').firstMatch(normalized)?.group(1)?.trim();
+      final person = RegExp(
+        r"^([a-z ]+?)(?:'s|s)?\s+birthday\b",
+      ).firstMatch(normalized)?.group(1)?.trim();
       final date = _dates.dateFromText(normalized);
       if (person == null || date == null) return result('Whose birthday and date should I save?', SecretaryIntent.storeEvent, .5, {}, const SecretaryAction(SecretaryActionType.clarify));
       _lastPerson = _titleCase(person);
