@@ -5,21 +5,24 @@ import '../services/voice_task_parser.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
-import '../models/reminder.dart';
+import '../models/lifepilot_task.dart';
+
+
+enum ReminderModeOption { normal, speak, repeatSpeak, silent }
 
 class ReminderFormScreen extends StatefulWidget {
-  final Reminder? existingReminder;
+  final LifePilotTask? existingTask;
   final String? initialTitle;
   final bool voiceMode;
 
   const ReminderFormScreen({
     super.key,
-    this.existingReminder,
+    this.existingTask,
     this.initialTitle,
     this.voiceMode = false,
   });
 
-  bool get isEditing => existingReminder != null;
+  bool get isEditing => existingTask != null;
 
   @override
   State<ReminderFormScreen> createState() => _ReminderFormScreenState();
@@ -33,27 +36,79 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   String selectedPriority = 'Medium';
-  NotificationMode selectedNotificationMode = NotificationMode.normal;
+  ReminderModeOption selectedNotificationMode = ReminderModeOption.normal;
 
   bool isListening = false;
+
+
+  String _priorityName(TaskPriority priority) {
+    switch (priority) {
+      case TaskPriority.low:
+        return 'Low';
+      case TaskPriority.normal:
+        return 'Medium';
+      case TaskPriority.high:
+        return 'High';
+      case TaskPriority.critical:
+        return 'Critical';
+    }
+  }
+
+  TaskPriority _taskPriority(String priority) {
+    switch (priority.toLowerCase()) {
+      case 'low':
+        return TaskPriority.low;
+      case 'high':
+        return TaskPriority.high;
+      case 'critical':
+        return TaskPriority.critical;
+      default:
+        return TaskPriority.normal;
+    }
+  }
+
+  ReminderMode _reminderMode(ReminderModeOption mode) {
+    switch (mode) {
+      case ReminderModeOption.silent:
+        return ReminderMode.silent;
+      case ReminderModeOption.speak:
+      case ReminderModeOption.repeatSpeak:
+        return ReminderMode.speakAloud;
+      case ReminderModeOption.normal:
+        return ReminderMode.normal;
+    }
+  }
+
+  ReminderModeOption _notificationMode(ReminderMode mode) {
+    switch (mode) {
+      case ReminderMode.silent:
+        return ReminderModeOption.silent;
+      case ReminderMode.speakAloud:
+        return ReminderModeOption.speak;
+      case ReminderMode.normal:
+        return ReminderModeOption.normal;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
 
-    final Reminder? reminder = widget.existingReminder;
+    final LifePilotTask? task = widget.existingTask;
 
-    if (reminder != null) {
-      titleController.text = reminder.title;
-      selectedDate = reminder.date;
-      selectedTime = TimeOfDay(hour: reminder.hour, minute: reminder.minute);
-      selectedPriority = reminder.priority;
-      selectedNotificationMode = reminder.notificationMode;
+    if (task != null) {
+      titleController.text = task.title;
+      if (task.dueDateTime != null) {
+        selectedDate = task.dueDateTime;
+        selectedTime = TimeOfDay.fromDateTime(task.dueDateTime!);
+      }
+      selectedPriority = _priorityName(task.priority);
+      selectedNotificationMode = _notificationMode(task.reminderMode);
     } else if (widget.initialTitle != null) {
       titleController.text = widget.initialTitle!;
     }
 
-    if (widget.existingReminder == null) {
+    if (widget.existingTask == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await Future.delayed(const Duration(milliseconds: 800));
 
@@ -308,26 +363,39 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
     debugPrint('Morning Brief: ${secretary.showInMorningBrief}');
     debugPrint('Speak Aloud: ${secretary.shouldSpeakAloud}');
     debugPrint('==============================');
-    final Reminder reminder;
+    final now = DateTime.now();
+    final existingTask = widget.existingTask;
+    final LifePilotTask task;
 
-    if (widget.existingReminder == null) {
-      reminder = Reminder(
-        id: DateTime.now().microsecondsSinceEpoch.remainder(2147483647),
+    if (existingTask == null) {
+      task = LifePilotTask(
+        id: now.microsecondsSinceEpoch.toString(),
         title: title,
-        date: selectedDate!,
-        hour: selectedTime!.hour,
-        minute: selectedTime!.minute,
-        priority: selectedPriority,
+        description: '',
+        category: analysis.category,
+        priority: _taskPriority(selectedPriority),
+        status: TaskStatus.pending,
+        dueDateTime: scheduledDateTime,
+        reminderEnabled: true,
+        reminderMode: _reminderMode(selectedNotificationMode),
+        repeatType: RepeatType.none,
+        isAiGenerated: false,
+        aiConfidence: analysis.confidence,
+        createdAt: now,
+        updatedAt: now,
       );
     } else {
-      reminder = widget.existingReminder!.copyWith(
+      task = existingTask.copyWith(
         title: title,
-        date: selectedDate,
-        hour: selectedTime!.hour,
-        minute: selectedTime!.minute,
-        priority: selectedPriority,
-        notificationMode: selectedNotificationMode,
-        isCompleted: false,
+        category: analysis.category,
+        priority: _taskPriority(selectedPriority),
+        status: TaskStatus.pending,
+        dueDateTime: scheduledDateTime,
+        reminderEnabled: true,
+        reminderMode: _reminderMode(selectedNotificationMode),
+        aiConfidence: analysis.confidence,
+        updatedAt: now,
+        completedAt: null,
       );
     }
 
@@ -335,7 +403,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
       return;
     }
 
-    Navigator.pop(context, reminder);
+    Navigator.pop(context, task);
   }
 
   @override
@@ -442,7 +510,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
 
               const SizedBox(height: 16),
 
-              DropdownButtonFormField<NotificationMode>(
+              DropdownButtonFormField<ReminderModeOption>(
                 initialValue: selectedNotificationMode,
                 decoration: const InputDecoration(
                   labelText: 'Notification Mode',
@@ -450,19 +518,19 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                 ),
                 items: const [
                   DropdownMenuItem(
-                    value: NotificationMode.normal,
+                    value: ReminderModeOption.normal,
                     child: Text('🔔 Normal'),
                   ),
                   DropdownMenuItem(
-                    value: NotificationMode.speak,
+                    value: ReminderModeOption.speak,
                     child: Text('🗣 Speak Once'),
                   ),
                   DropdownMenuItem(
-                    value: NotificationMode.repeatSpeak,
+                    value: ReminderModeOption.repeatSpeak,
                     child: Text('📢 Speak Repeatedly'),
                   ),
                   DropdownMenuItem(
-                    value: NotificationMode.silent,
+                    value: ReminderModeOption.silent,
                     child: Text('🔕 Silent'),
                   ),
                 ],
