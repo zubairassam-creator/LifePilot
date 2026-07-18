@@ -1,6 +1,8 @@
 import 'package:hive/hive.dart';
 
 import '../models/lifepilot_task.dart';
+import 'notification_service.dart';
+import 'sync_service.dart';
 
 class TaskStorageService {
   static const String _boxName = 'tasks';
@@ -26,16 +28,37 @@ class TaskStorageService {
   /// Add a new task
   static Future<void> addTask(LifePilotTask task) async {
     await _taskBox.put(task.id, task);
+    await SyncService.enqueue(
+      localId: task.id,
+      collection: 'tasks',
+      operation: 'upsert',
+      payload: _taskPayload(task),
+    );
   }
 
   /// Update an existing task
   static Future<void> updateTask(LifePilotTask task) async {
     await _taskBox.put(task.id, task);
+    await SyncService.enqueue(
+      localId: task.id,
+      collection: 'tasks',
+      operation: 'upsert',
+      payload: _taskPayload(task),
+    );
   }
 
   /// Delete task
   static Future<void> deleteTask(String taskId) async {
+    final task = _taskBox.get(taskId);
+    if (task != null) {
+      await NotificationService.cancelTask(task);
+    }
     await _taskBox.delete(taskId);
+    await SyncService.enqueue(
+      localId: taskId,
+      collection: 'tasks',
+      operation: 'delete',
+    );
   }
 
   /// Get task by ID
@@ -109,6 +132,22 @@ class TaskStorageService {
   static Future<void> clearAll() async {
     await _taskBox.clear();
   }
+
+  static Map<String, dynamic> _taskPayload(LifePilotTask task) => {
+    'id': task.id,
+    'title': task.title,
+    'description': task.description,
+    'category': task.category,
+    'priority': task.priority.name,
+    'status': task.status.name,
+    'dueDateTime': task.dueDateTime?.toIso8601String(),
+    'reminderEnabled': task.reminderEnabled,
+    'reminderMode': task.reminderMode.name,
+    'repeatType': task.repeatType.name,
+    'createdAt': task.createdAt.toIso8601String(),
+    'updatedAt': task.updatedAt.toIso8601String(),
+    'completedAt': task.completedAt?.toIso8601String(),
+  };
 
   /// Close database
   static Future<void> dispose() async {
