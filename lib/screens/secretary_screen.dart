@@ -4,6 +4,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../core/lifepilot_core.dart';
 import '../models/chat_message.dart';
 import '../services/voice_service.dart';
+import 'my_tasks_screen.dart';
 
 class SecretaryScreen extends StatefulWidget {
   const SecretaryScreen({super.key});
@@ -159,7 +160,24 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
     final hasText = _textController.text.trim().isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("LifePilot AI"), centerTitle: true),
+      appBar: AppBar(
+        title: const Text("LifePilot AI"),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: "Smart Tasks",
+            icon: const Icon(Icons.checklist),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SmartRemindersScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
