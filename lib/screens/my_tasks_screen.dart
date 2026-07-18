@@ -9,7 +9,7 @@ import 'reminder_form_screen.dart';
 
 enum ReminderFilter { all, today, upcoming, missed, completed }
 
-// LifePilot Smart Tasks (reviewed base)
+// LifePilot LifePilot Smart Tasks (reviewed base)
 class SmartRemindersScreen extends StatefulWidget {
   const SmartRemindersScreen({super.key});
 
@@ -499,7 +499,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     final List<Reminder> visibleReminders = filteredReminders;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Smart Tasks')),
+      appBar: AppBar(title: const Text('LifePilot Smart Tasks')),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -521,7 +521,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                                 ),
                                 const SizedBox(height: 20),
                                 const Text(
-                                  'No Smart Tasks Yet',
+                                  'No LifePilot Smart Tasks Yet',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 24,
@@ -530,7 +530,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  'LifePilot AI will help you remember what matters.\nTap "Create Task" below to get started.',
+                                  'LifePilot AI helps you organize, remember, and complete what matters most.\nTap the + New Task button to create your first task.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 16,
@@ -563,7 +563,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                     onPressed: createReminder,
                     icon: const Icon(Icons.mic, size: 28),
                     label: const Text(
-                      'Create Task',
+                      '+ New Task',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
