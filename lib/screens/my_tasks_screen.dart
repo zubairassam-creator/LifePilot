@@ -1,15 +1,15 @@
-import '../services/reminder_engine.dart';
-import '../services/voice_service.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../models/reminder.dart';
+import '../models/lifepilot_task.dart';
 import '../services/notification_service.dart';
-import '../services/reminder_storage.dart';
+import '../services/task_storage_service.dart';
+import '../services/voice_service.dart';
 import 'reminder_form_screen.dart';
 
 enum ReminderFilter { all, today, upcoming, missed, completed }
 
-// LifePilot LifePilot Smart Tasks (reviewed base)
 class SmartRemindersScreen extends StatefulWidget {
   const SmartRemindersScreen({super.key});
 
@@ -18,40 +18,37 @@ class SmartRemindersScreen extends StatefulWidget {
 }
 
 class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
-  final List<Reminder> reminders = [];
-
-  final Set<int> selectedReminderIds = {};
-
+  final List<LifePilotTask> tasks = [];
   ReminderFilter selectedFilter = ReminderFilter.all;
-
-  bool selectionMode = false;
-
   bool isLoading = true;
+  StreamSubscription<void>? _taskSubscription;
 
   @override
   void initState() {
     super.initState();
-    loadSavedReminders();
-  }
-
-  Future<void> loadSavedReminders() async {
-    final List<Reminder> savedReminders = await ReminderStorage.loadReminders();
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      reminders
-        ..clear()
-        ..addAll(savedReminders);
-
-      isLoading = false;
+    loadSavedTasks();
+    _taskSubscription = TaskStorageService.watchTasks().listen((_) {
+      loadSavedTasks();
     });
   }
 
-  Future<void> saveReminderList() async {
-    await ReminderStorage.saveReminders(reminders);
+  @override
+  void dispose() {
+    _taskSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> loadSavedTasks() async {
+    final savedTasks = TaskStorageService.getAllTasks();
+
+    if (!mounted) return;
+
+    setState(() {
+      tasks
+        ..clear()
+        ..addAll(savedTasks);
+      isLoading = false;
+    });
   }
 
   bool isSameDay(DateTime first, DateTime second) {
@@ -60,90 +57,78 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
         first.day == second.day;
   }
 
-  List<Reminder> get filteredReminders {
-    final DateTime now = DateTime.now();
+  bool isMissed(LifePilotTask task) {
+    return task.status != TaskStatus.completed &&
+        task.dueDateTime != null &&
+        task.dueDateTime!.isBefore(DateTime.now());
+  }
 
-    final List<Reminder> result;
+  List<LifePilotTask> get filteredTasks {
+    final now = DateTime.now();
+    final List<LifePilotTask> result;
 
     switch (selectedFilter) {
       case ReminderFilter.all:
-        result = List<Reminder>.from(reminders);
-
+        result = List<LifePilotTask>.from(tasks);
       case ReminderFilter.today:
-        result = reminders.where((reminder) {
-          return !reminder.isCompleted &&
-              !reminder.isMissed &&
-              isSameDay(reminder.scheduledDateTime, now);
+        result = tasks.where((task) {
+          final due = task.dueDateTime;
+          return task.status == TaskStatus.pending &&
+              due != null &&
+              !isMissed(task) &&
+              isSameDay(due, now);
         }).toList();
-
       case ReminderFilter.upcoming:
-        result = reminders.where((reminder) {
-          return !reminder.isCompleted &&
-              reminder.scheduledDateTime.isAfter(now);
+        result = tasks.where((task) {
+          final due = task.dueDateTime;
+          return task.status == TaskStatus.pending &&
+              due != null &&
+              due.isAfter(now);
         }).toList();
-
       case ReminderFilter.missed:
-        result = reminders.where((reminder) {
-          return reminder.isMissed;
-        }).toList();
-
+        result = tasks.where(isMissed).toList();
       case ReminderFilter.completed:
-        result = reminders.where((reminder) {
-          return reminder.isCompleted;
-        }).toList();
+        result = tasks
+            .where((task) => task.status == TaskStatus.completed)
+            .toList();
     }
 
-    result.sort(
-      (first, second) =>
-          first.scheduledDateTime.compareTo(second.scheduledDateTime),
-    );
+    result.sort((first, second) {
+      final firstDue = first.dueDateTime ?? first.createdAt;
+      final secondDue = second.dueDateTime ?? second.createdAt;
+      return firstDue.compareTo(secondDue);
+    });
 
     return result;
   }
 
-  Future<void> createReminder() async {
+  Future<void> createTask() async {
     await VoiceService.speak('Please tell me the reminder');
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
-    final Reminder? newReminder = await Navigator.push<Reminder>(
+    final newTask = await Navigator.push<LifePilotTask>(
       context,
       MaterialPageRoute(
         builder: (context) => const ReminderFormScreen(voiceMode: true),
       ),
     );
 
-    if (newReminder == null) {
-      return;
-    }
+    if (newTask == null) return;
 
     try {
-      await ReminderEngine.create(
-        reminder: newReminder,
-        reminderList: reminders,
-      );
-
-      if (!mounted) {
-        return;
+      await TaskStorageService.addTask(newTask);
+      if (newTask.reminderEnabled && newTask.dueDateTime != null) {
+        await NotificationService.scheduleTask(newTask);
       }
+      await loadSavedTasks();
 
-      setState(() {});
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Reminder saved and notification scheduled.'),
-        ),
+        const SnackBar(content: Text('Reminder saved and notification scheduled.')),
       );
     } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -154,119 +139,86 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     }
   }
 
-  Future<void> editReminder(Reminder oldReminder) async {
-    final Reminder? updatedReminder = await Navigator.push<Reminder>(
+  Future<void> editTask(LifePilotTask oldTask) async {
+    final updatedTask = await Navigator.push<LifePilotTask>(
       context,
       MaterialPageRoute(
-        builder: (context) => ReminderFormScreen(existingReminder: oldReminder),
+        builder: (context) => ReminderFormScreen(existingTask: oldTask),
       ),
     );
 
-    if (updatedReminder == null) {
-      return;
-    }
+    if (updatedTask == null) return;
 
     try {
-      await NotificationService.cancelReminder(oldReminder.id);
-
-      await NotificationService.scheduleReminder(updatedReminder);
-
-      final int index = reminders.indexWhere(
-        (reminder) => reminder.id == oldReminder.id,
-      );
-
-      if (index == -1) {
-        return;
+      await NotificationService.cancelTask(oldTask);
+      if (updatedTask.reminderEnabled && updatedTask.dueDateTime != null) {
+        await NotificationService.scheduleTask(updatedTask);
       }
+      await TaskStorageService.updateTask(updatedTask);
+      await loadSavedTasks();
 
-      setState(() {
-        reminders[index] = updatedReminder;
-      });
-
-      await saveReminderList();
-
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reminder updated successfully.')),
       );
     } catch (_) {
       try {
-        if (!oldReminder.isCompleted && !oldReminder.isMissed) {
-          await NotificationService.scheduleReminder(oldReminder);
+        if (!isMissed(oldTask) && oldTask.status != TaskStatus.completed) {
+          await NotificationService.scheduleTask(oldTask);
         }
-      } catch (_) {
-        // Ignore restoration failure.
-      }
+      } catch (_) {}
 
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not update reminder notification.'),
-        ),
+        const SnackBar(content: Text('Could not update reminder notification.')),
       );
     }
   }
 
-  Future<void> rescheduleReminder(Reminder reminder) async {
-    await editReminder(reminder);
-  }
+  Future<void> toggleCompleted(LifePilotTask task) async {
+    final now = DateTime.now();
+    final completed = task.status != TaskStatus.completed;
+    final updatedTask = task.copyWith(
+      status: completed ? TaskStatus.completed : TaskStatus.pending,
+      updatedAt: now,
+      completedAt: completed ? now : null,
+    );
 
-  Future<void> toggleCompleted(Reminder reminder) async {
-    final int index = reminders.indexWhere((item) => item.id == reminder.id);
+    await TaskStorageService.updateTask(updatedTask);
 
-    if (index == -1) {
-      return;
-    }
-
-    setState(() {
-      reminders[index].isCompleted = !reminders[index].isCompleted;
-    });
-
-    if (reminders[index].isCompleted) {
-      await NotificationService.cancelReminder(reminders[index].id);
+    if (completed) {
+      await NotificationService.cancelTask(updatedTask);
     } else {
       try {
-        await NotificationService.scheduleReminder(reminders[index]);
+        await NotificationService.scheduleTask(updatedTask);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'This reminder time has already passed. Please reschedule it.',
-              ),
+              content: Text('This reminder time has already passed. Please reschedule it.'),
             ),
           );
         }
       }
     }
 
-    await saveReminderList();
+    await loadSavedTasks();
   }
 
-  Future<bool> confirmDelete(Reminder reminder) async {
-    final bool? shouldDelete = await showDialog<bool>(
+  Future<bool> confirmDelete(LifePilotTask task) async {
+    final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Delete Reminder?'),
-          content: Text('Are you sure you want to delete "${reminder.title}"?'),
+          content: Text('Are you sure you want to delete "${task.title}"?'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Delete'),
             ),
           ],
@@ -277,64 +229,46 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     return shouldDelete ?? false;
   }
 
-  Future<void> deleteReminder(Reminder reminder) async {
-    final bool shouldDelete = await confirmDelete(reminder);
+  Future<void> deleteTask(LifePilotTask task) async {
+    if (!await confirmDelete(task)) return;
 
-    if (!shouldDelete) {
-      return;
-    }
+    await NotificationService.cancelTask(task);
+    await TaskStorageService.deleteTask(task.id);
+    await loadSavedTasks();
 
-    final int index = reminders.indexWhere((item) => item.id == reminder.id);
-
-    if (index == -1) {
-      return;
-    }
-
-    final Reminder deletedReminder = reminders[index];
-
-    setState(() {
-      reminders.removeAt(index);
-    });
-
-    await NotificationService.cancelReminder(deletedReminder.id);
-
-    await saveReminderList();
-
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Reminder deleted'),
         action: SnackBarAction(
           label: 'UNDO',
           onPressed: () async {
-            final int safeIndex = index <= reminders.length
-                ? index
-                : reminders.length;
-
-            setState(() {
-              reminders.insert(safeIndex, deletedReminder);
-            });
-
-            if (!deletedReminder.isCompleted && !deletedReminder.isMissed) {
+            await TaskStorageService.addTask(task);
+            if (!isMissed(task) && task.status != TaskStatus.completed) {
               try {
-                await NotificationService.scheduleReminder(deletedReminder);
-              } catch (_) {
-                // Ignore rescheduling failure.
-              }
+                await NotificationService.scheduleTask(task);
+              } catch (_) {}
             }
-
-            await saveReminderList();
+            await loadSavedTasks();
           },
         ),
       ),
     );
   }
 
-  String formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  String formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
+
+  String getPriorityName(TaskPriority priority) {
+    switch (priority) {
+      case TaskPriority.low:
+        return 'Low';
+      case TaskPriority.normal:
+        return 'Medium';
+      case TaskPriority.high:
+        return 'High';
+      case TaskPriority.critical:
+        return 'Critical';
+    }
   }
 
   String getFilterName(ReminderFilter filter) {
@@ -398,8 +332,8 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     );
   }
 
-  Widget buildReminderCard(Reminder reminder) {
-    final bool missed = reminder.isMissed;
+  Widget buildTaskCard(LifePilotTask task) {
+    final bool missed = isMissed(task);
 
     return Card(
       margin: const EdgeInsets.only(left: 12, right: 12, bottom: 10),
@@ -407,16 +341,16 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: ListTile(
           leading: Checkbox(
-            value: reminder.isCompleted,
+            value: task.status == TaskStatus.completed,
             onChanged: (_) {
-              toggleCompleted(reminder);
+              toggleCompleted(task);
             },
           ),
           title: Text(
-            reminder.title,
+            task.title,
             style: TextStyle(
               fontWeight: FontWeight.w600,
-              decoration: reminder.isCompleted
+              decoration: task.status == TaskStatus.completed
                   ? TextDecoration.lineThrough
                   : TextDecoration.none,
             ),
@@ -426,9 +360,11 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
             children: [
               const SizedBox(height: 4),
               Text(
-                '${formatDate(reminder.date)} • '
-                '${reminder.time.format(context)} • '
-                '${reminder.priority} Priority',
+                task.dueDateTime == null
+                    ? '${getPriorityName(task.priority)} Priority'
+                    : '${formatDate(task.dueDateTime!)} • '
+                          '${TimeOfDay.fromDateTime(task.dueDateTime!).format(context)} • '
+                          '${getPriorityName(task.priority)} Priority',
               ),
               if (missed)
                 const Padding(
@@ -444,13 +380,13 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
             onSelected: (value) {
               switch (value) {
                 case 'edit':
-                  editReminder(reminder);
+                  editTask(task);
 
                 case 'reschedule':
-                  rescheduleReminder(reminder);
+                  editTask(task);
 
                 case 'delete':
-                  deleteReminder(reminder);
+                  deleteTask(task);
               }
             },
             itemBuilder: (context) {
@@ -496,7 +432,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Reminder> visibleReminders = filteredReminders;
+    final List<LifePilotTask> visibleTasks = filteredTasks;
 
     return Scaffold(
       appBar: AppBar(title: const Text('LifePilot Smart Tasks')),
@@ -507,7 +443,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                 buildFilterBar(),
                 const Divider(),
                 Expanded(
-                  child: visibleReminders.isEmpty
+                  child: visibleTasks.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 30),
@@ -544,9 +480,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                         )
                       : ListView.builder(
                           padding: const EdgeInsets.only(top: 8),
-                          itemCount: visibleReminders.length,
+                          itemCount: visibleTasks.length,
                           itemBuilder: (context, index) {
-                            return buildReminderCard(visibleReminders[index]);
+                            return buildTaskCard(visibleTasks[index]);
                           },
                         ),
                 ),
@@ -560,7 +496,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                 child: SizedBox(
                   height: 58,
                   child: ElevatedButton.icon(
-                    onPressed: createReminder,
+                    onPressed: createTask,
                     icon: const Icon(Icons.mic, size: 28),
                     label: const Text(
                       '+ New Task',

@@ -3,6 +3,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../models/lifepilot_task.dart';
 import '../models/reminder.dart';
 import 'voice_reminder_service.dart';
 
@@ -63,6 +64,64 @@ class NotificationService {
     );
 
     await androidPlugin?.createNotificationChannel(channel);
+  }
+
+
+  static int notificationIdForTask(LifePilotTask task) {
+    final parsedId = int.tryParse(task.id);
+
+    if (parsedId != null) {
+      return parsedId.remainder(2147483647);
+    }
+
+    return task.id.hashCode.abs().remainder(2147483647);
+  }
+
+  static Future<void> scheduleTask(LifePilotTask task) async {
+    final dueDateTime = task.dueDateTime;
+
+    if (dueDateTime == null) {
+      throw Exception('Task must have a due date to schedule a reminder.');
+    }
+
+    final tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      dueDateTime.year,
+      dueDateTime.month,
+      dueDateTime.day,
+      dueDateTime.hour,
+      dueDateTime.minute,
+    );
+
+    if (!scheduledDate.isAfter(tz.TZDateTime.now(tz.local))) {
+      throw Exception('Reminder time must be in the future.');
+    }
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      channelId,
+      channelName,
+      channelDescription: channelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await notificationsPlugin.zonedSchedule(
+      id: notificationIdForTask(task),
+      title: 'LifePilot Reminder',
+      body: task.title,
+      scheduledDate: scheduledDate,
+      notificationDetails: notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: task.title,
+    );
+  }
+
+  static Future<void> cancelTask(LifePilotTask task) async {
+    await notificationsPlugin.cancel(id: notificationIdForTask(task));
   }
 
   static Future<void> scheduleReminder(Reminder reminder) async {

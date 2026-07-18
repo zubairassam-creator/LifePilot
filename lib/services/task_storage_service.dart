@@ -43,6 +43,11 @@ class TaskStorageService {
     return _taskBox.get(taskId);
   }
 
+  /// Watch task changes
+  static Stream<void> watchTasks() {
+    return _taskBox.watch().map((_) {});
+  }
+
   /// Get all tasks
   static List<LifePilotTask> getAllTasks() {
     final tasks = _taskBox.values.toList();
