@@ -1,41 +1,36 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../models/reminder.dart';
+import 'task_storage_service.dart';
+import 'reminder_mapper.dart';
 
 class ReminderStorage {
-  static const String storageKey = 'lifepilot_reminders_v1';
-
+  /// Load all reminders from Hive
   static Future<List<Reminder>> loadReminders() async {
-    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    final tasks = TaskStorageService.getAllTasks();
 
-    final String? savedData = preferences.getString(storageKey);
-
-    if (savedData == null || savedData.isEmpty) {
-      return [];
-    }
-
-    try {
-      final List<dynamic> decodedData = jsonDecode(savedData);
-
-      return decodedData
-          .map(
-            (item) => Reminder.fromJson(Map<String, dynamic>.from(item as Map)),
-          )
-          .toList();
-    } catch (_) {
-      return [];
-    }
+    return tasks.map((task) => ReminderMapper.fromTask(task)).toList();
   }
 
+  /// Save all reminders to Hive
   static Future<void> saveReminders(List<Reminder> reminders) async {
-    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    final tasks = reminders
+        .map((reminder) => ReminderMapper.toTask(reminder))
+        .toList();
 
-    final String encodedData = jsonEncode(
-      reminders.map((item) => item.toJson()).toList(),
-    );
+    await TaskStorageService.replaceAllTasks(tasks);
+  }
 
-    await preferences.setString(storageKey, encodedData);
+  /// Add one reminder
+  static Future<void> addReminder(Reminder reminder) async {
+    await TaskStorageService.addTask(ReminderMapper.toTask(reminder));
+  }
+
+  /// Update one reminder
+  static Future<void> updateReminder(Reminder reminder) async {
+    await TaskStorageService.updateTask(ReminderMapper.toTask(reminder));
+  }
+
+  /// Delete one reminder
+  static Future<void> deleteReminder(String reminderId) async {
+    await TaskStorageService.deleteTask(reminderId);
   }
 }

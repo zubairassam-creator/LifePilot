@@ -91,6 +91,15 @@ class TaskStorageService {
     return _taskBox.length;
   }
 
+  /// Replace all tasks
+  static Future<void> replaceAllTasks(List<LifePilotTask> tasks) async {
+    await _taskBox.clear();
+
+    for (final task in tasks) {
+      await _taskBox.put(task.id, task);
+    }
+  }
+
   /// Remove everything (Development only)
   static Future<void> clearAll() async {
     await _taskBox.clear();
