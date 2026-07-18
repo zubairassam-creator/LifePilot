@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../core/lifepilot_core.dart';
+import '../core/secretary_intents.dart';
 import '../models/chat_message.dart';
+import '../models/lifepilot_task.dart';
+import '../services/task_storage_service.dart';
 import '../services/voice_service.dart';
 import 'my_tasks_screen.dart';
 
@@ -45,40 +48,6 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
     });
   }
 
-  static const Set<String> _smartTasksNavigationCommands = {
-    'show me the schedule',
-    'show my schedule',
-    'open schedule',
-    'my schedule',
-    'todays schedule',
-    'what is my schedule',
-    'whats my schedule',
-    'what do i have today',
-    'show tasks',
-    'show my tasks',
-    'open tasks',
-    'my tasks',
-    'smart tasks',
-    'show reminders',
-    'show my reminders',
-    'open reminders',
-    'my reminders',
-  };
-
-  String _normalizeCommandText(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[‘’`´]'), "'")
-        .replaceAll(RegExp(r"['’]"), '')
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-  }
-
-  bool _isSmartTasksNavigationCommand(String text) {
-    return _smartTasksNavigationCommands.contains(_normalizeCommandText(text));
-  }
-
   Future<void> processUserInput(String text) async {
     final trimmedText = text.trim();
     if (trimmedText.isEmpty) return;
@@ -92,39 +61,6 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
 
     _scrollToBottom();
 
-    if (_isSmartTasksNavigationCommand(trimmedText)) {
-      const assistantMessage = 'Opening your Smart Tasks.';
-
-      if (!mounted) return;
-
-      setState(() {
-        _isThinking = false;
-        _messages.add(
-          ChatMessage(
-            text: assistantMessage,
-            sender: MessageSender.assistant,
-          ),
-        );
-        _isSpeaking = true;
-      });
-
-      _scrollToBottom();
-
-      await VoiceService.speak(assistantMessage);
-
-      if (!mounted) return;
-
-      setState(() {
-        _isSpeaking = false;
-      });
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SmartRemindersScreen()),
-      );
-      return;
-    }
-
     final response = await LifePilotCore.instance.process(trimmedText);
 
     if (!mounted) return;
@@ -133,7 +69,7 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
       _isThinking = false;
 
       _messages.add(
-        ChatMessage(text: response.message, sender: MessageSender.assistant),
+        ChatMessage(text: response.response, sender: MessageSender.assistant),
       );
 
       _isSpeaking = true;
@@ -141,13 +77,79 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
 
     _scrollToBottom();
 
-    await VoiceService.speak(response.message);
+    await VoiceService.speak(response.response);
 
     if (!mounted) return;
 
     setState(() {
       _isSpeaking = false;
     });
+
+    await _executeSecretaryAction(response.action);
+  }
+
+  Future<void> _executeSecretaryAction(SecretaryAction action) async {
+    if (!mounted) return;
+
+    switch (action.type) {
+      case SecretaryActionType.navigateTasks:
+        final filter = _taskFilter(action.payload['filter'] as String?);
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SmartRemindersScreen(initialFilter: filter),
+          ),
+        );
+        return;
+      case SecretaryActionType.createReminder:
+      case SecretaryActionType.deleteTasks:
+        await _deleteTasks(action.payload['scope'] as String?);
+        return;
+      case SecretaryActionType.showHelp:
+      case SecretaryActionType.clarify:
+        return;
+    }
+  }
+
+  Future<void> _deleteTasks(String? scope) async {
+    if (scope == null || scope == 'unknown') return;
+    final tasks = TaskStorageService.getAllTasks();
+    final now = DateTime.now();
+    final deletable = tasks.where((task) {
+      final missed = task.status != TaskStatus.completed &&
+          task.dueDateTime != null &&
+          task.dueDateTime!.isBefore(now);
+      switch (scope) {
+        case 'completed':
+          return task.status == TaskStatus.completed;
+        case 'missed':
+          return missed;
+        case 'all':
+          return true;
+        default:
+          return false;
+      }
+    }).toList();
+    for (final task in deletable) {
+      await TaskStorageService.deleteTask(task.id);
+    }
+  }
+
+  ReminderFilter _taskFilter(String? value) {
+    switch (value) {
+      case 'today':
+        return ReminderFilter.today;
+      case 'tomorrow':
+        return ReminderFilter.tomorrow;
+      case 'upcoming':
+        return ReminderFilter.upcoming;
+      case 'completed':
+        return ReminderFilter.completed;
+      case 'missed':
+        return ReminderFilter.missed;
+      default:
+        return ReminderFilter.all;
+    }
   }
 
   void _setListeningState(bool isListening) {
