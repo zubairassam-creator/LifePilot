@@ -45,20 +45,87 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
     });
   }
 
-  Future<void> _sendMessage(String message) async {
-    if (message.trim().isEmpty) return;
+  static const Set<String> _smartTasksNavigationCommands = {
+    'show me the schedule',
+    'show my schedule',
+    'open schedule',
+    'my schedule',
+    'todays schedule',
+    'what is my schedule',
+    'whats my schedule',
+    'what do i have today',
+    'show tasks',
+    'show my tasks',
+    'open tasks',
+    'my tasks',
+    'smart tasks',
+    'show reminders',
+    'show my reminders',
+    'open reminders',
+    'my reminders',
+  };
+
+  String _normalizeCommandText(String text) {
+    return text
+        .toLowerCase()
+        .replaceAll(RegExp(r'[‘’`´]'), "'")
+        .replaceAll(RegExp(r"['’]"), '')
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  bool _isSmartTasksNavigationCommand(String text) {
+    return _smartTasksNavigationCommands.contains(_normalizeCommandText(text));
+  }
+
+  Future<void> processUserInput(String text) async {
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty) return;
 
     _textController.clear();
 
     setState(() {
-      _messages.add(ChatMessage(text: message, sender: MessageSender.user));
-
+      _messages.add(ChatMessage(text: trimmedText, sender: MessageSender.user));
       _isThinking = true;
     });
 
     _scrollToBottom();
 
-    final response = await LifePilotCore.instance.process(message);
+    if (_isSmartTasksNavigationCommand(trimmedText)) {
+      const assistantMessage = 'Opening your Smart Tasks.';
+
+      if (!mounted) return;
+
+      setState(() {
+        _isThinking = false;
+        _messages.add(
+          ChatMessage(
+            text: assistantMessage,
+            sender: MessageSender.assistant,
+          ),
+        );
+        _isSpeaking = true;
+      });
+
+      _scrollToBottom();
+
+      await VoiceService.speak(assistantMessage);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isSpeaking = false;
+      });
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const SmartRemindersScreen()),
+      );
+      return;
+    }
+
+    final response = await LifePilotCore.instance.process(trimmedText);
 
     if (!mounted) return;
 
@@ -83,21 +150,37 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
     });
   }
 
+  void _setListeningState(bool isListening) {
+    if (!mounted || _isListening == isListening) return;
+
+    setState(() {
+      _isListening = isListening;
+    });
+  }
+
   Future<void> _startListening() async {
+    if (_isListening) {
+      await _speech.stop();
+      _setListeningState(false);
+      return;
+    }
+
     final available = await _speech.initialize(
       onStatus: (status) {
-        if (!mounted) return;
+        final normalizedStatus = status.toLowerCase();
+        final isActivelyListening = normalizedStatus == 'listening';
 
-        setState(() {
-          _isListening = status == "listening";
-        });
+        if (isActivelyListening) {
+          _setListeningState(true);
+        } else if (normalizedStatus == 'notlistening' ||
+            normalizedStatus == 'done') {
+          _setListeningState(false);
+        }
       },
       onError: (error) {
-        if (!mounted) return;
+        _setListeningState(false);
 
-        setState(() {
-          _isListening = false;
-        });
+        if (!mounted) return;
 
         ScaffoldMessenger.of(
           context,
@@ -106,28 +189,43 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
     );
 
     if (!available) {
+      _setListeningState(false);
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Speech recognition is not available.")),
+        const SnackBar(content: Text('Speech recognition is not available.')),
       );
       return;
     }
 
-    await _speech.listen(
-      onResult: (result) async {
-        if (!mounted) return;
+    _setListeningState(true);
 
-        if (!result.finalResult) return;
+    try {
+      await _speech.listen(
+        onResult: (result) async {
+          if (!mounted) return;
 
-        await _sendMessage(result.recognizedWords);
-      },
-      listenOptions: stt.SpeechListenOptions(
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 5),
-        partialResults: true,
-      ),
-    );
+          if (!result.finalResult) return;
+
+          _setListeningState(false);
+          await processUserInput(result.recognizedWords);
+        },
+        listenOptions: stt.SpeechListenOptions(
+          listenFor: const Duration(seconds: 30),
+          pauseFor: const Duration(seconds: 5),
+          partialResults: true,
+        ),
+      );
+    } catch (_) {
+      _setListeningState(false);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not start speech recognition.')),
+      );
+    }
   }
 
   @override
@@ -164,17 +262,32 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
         title: const Text("LifePilot AI"),
         centerTitle: true,
         actions: [
-          IconButton(
-            tooltip: "Smart Tasks",
-            icon: const Icon(Icons.checklist),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SmartRemindersScreen(),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Tooltip(
+              message: 'Open Smart Tasks',
+              child: FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
                 ),
-              );
-            },
+                icon: const Icon(Icons.checklist, size: 20),
+                label: const Text(
+                  'Smart Tasks',
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SmartRemindersScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),
@@ -288,7 +401,7 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
                         setState(() {});
                       },
                       onSubmitted: (value) async {
-                        await _sendMessage(value);
+                        await processUserInput(value);
                       },
                     ),
                   ),
@@ -297,11 +410,17 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
 
                   FloatingActionButton(
                     mini: true,
+                    backgroundColor: !hasText && _isListening
+                        ? Colors.red
+                        : null,
+                    foregroundColor: !hasText && _isListening
+                        ? Colors.white
+                        : null,
                     onPressed: () async {
                       if (_textController.text.trim().isEmpty) {
                         await _startListening();
                       } else {
-                        await _sendMessage(_textController.text.trim());
+                        await processUserInput(_textController.text.trim());
                       }
                     },
                     child: Icon(hasText ? Icons.send : Icons.mic),
