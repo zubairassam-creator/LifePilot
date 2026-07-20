@@ -264,28 +264,33 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: SafeArea(
-        child: CustomScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          slivers: [
-            SliverPadding(
+        child: Column(
+          children: [
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              sliver: SliverToBoxAdapter(
-                child: _SecretaryPanel(
-                  messages: _messages,
-                  scrollController: _chatScrollController,
-                  textController: _textController,
-                  focusNode: _focusNode,
-                  isListening: _isListening,
-                  statusText: _statusText,
-                  hasText: hasText,
-                  onListen: _startListening,
-                  onSubmit: _processUserInput,
-                  onTextChanged: () => setState(() {}),
-                ),
+              child: _SecretaryPanel(
+                isListening: _isListening,
+                statusText: _statusText,
+                onListen: _startListening,
+              ),
+            ),
+            Expanded(
+              child: _ConversationList(
+                messages: _messages,
+                scrollController: _chatScrollController,
               ),
             ),
           ],
         ),
+      ),
+      bottomNavigationBar: _SecretaryInputBar(
+        textController: _textController,
+        focusNode: _focusNode,
+        isListening: _isListening,
+        hasText: hasText,
+        onListen: _startListening,
+        onSubmit: _processUserInput,
+        onTextChanged: () => setState(() {}),
       ),
     );
   }
@@ -293,28 +298,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _SecretaryPanel extends StatelessWidget {
   const _SecretaryPanel({
-    required this.messages,
-    required this.scrollController,
-    required this.textController,
-    required this.focusNode,
     required this.isListening,
     required this.statusText,
-    required this.hasText,
     required this.onListen,
-    required this.onSubmit,
-    required this.onTextChanged,
   });
 
-  final List<ChatMessage> messages;
-  final ScrollController scrollController;
-  final TextEditingController textController;
-  final FocusNode focusNode;
   final bool isListening;
   final String statusText;
-  final bool hasText;
   final VoidCallback onListen;
-  final ValueChanged<String> onSubmit;
-  final VoidCallback onTextChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -346,53 +337,129 @@ class _SecretaryPanel extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(statusText, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 190,
-              child: ListView.builder(
-                controller: scrollController,
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-                  final isUser = message.sender == MessageSender.user;
-                  return Align(
-                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 5),
-                      padding: const EdgeInsets.all(12),
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
-                      decoration: BoxDecoration(
-                        color: isUser ? Colors.indigo : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(message.text, style: TextStyle(color: isUser ? Colors.white : Colors.black87)),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: textController,
-                    focusNode: focusNode,
-                    textInputAction: TextInputAction.send,
-                    decoration: const InputDecoration(hintText: 'Type to your secretary...', border: OutlineInputBorder(), isDense: true),
-                    onChanged: (_) => onTextChanged(),
-                    onSubmitted: onSubmit,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                FilledButton(
-                  style: FilledButton.styleFrom(minimumSize: const Size(52, 52), shape: const CircleBorder(), padding: EdgeInsets.zero, backgroundColor: hasText ? Colors.indigo : (isListening ? Colors.red : Colors.indigo)),
-                  onPressed: () => hasText ? onSubmit(textController.text) : onListen(),
-                  child: Icon(hasText ? Icons.send : Icons.mic, color: Colors.white),
-                ),
-              ],
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationList extends StatelessWidget {
+  const _ConversationList({
+    required this.messages,
+    required this.scrollController,
+  });
+
+  final List<ChatMessage> messages;
+  final ScrollController scrollController;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      controller: scrollController,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final isUser = message.sender == MessageSender.user;
+        return Align(
+          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 5),
+            padding: const EdgeInsets.all(12),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+            decoration: BoxDecoration(
+              color: isUser ? Colors.indigo : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(message.text, style: TextStyle(color: isUser ? Colors.white : Colors.black87)),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SecretaryInputBar extends StatelessWidget {
+  const _SecretaryInputBar({
+    required this.textController,
+    required this.focusNode,
+    required this.isListening,
+    required this.hasText,
+    required this.onListen,
+    required this.onSubmit,
+    required this.onTextChanged,
+  });
+
+  final TextEditingController textController;
+  final FocusNode focusNode;
+  final bool isListening;
+  final bool hasText;
+  final VoidCallback onListen;
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onTextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Attach',
+                icon: const Icon(Icons.attach_file),
+                onPressed: () {},
+              ),
+              Expanded(
+                child: TextField(
+                  controller: textController,
+                  focusNode: focusNode,
+                  textInputAction: TextInputAction.send,
+                  decoration: InputDecoration(
+                    hintText: 'Type to your secretary...',
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (_) => onTextChanged(),
+                  onSubmitted: onSubmit,
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(52, 52),
+                  shape: const CircleBorder(),
+                  padding: EdgeInsets.zero,
+                  backgroundColor: hasText ? Colors.indigo : (isListening ? Colors.red : Colors.indigo),
+                ),
+                onPressed: () => hasText ? onSubmit(textController.text) : onListen(),
+                child: Icon(hasText ? Icons.send : Icons.mic, color: Colors.white),
+              ),
+            ],
+          ),
         ),
       ),
     );
