@@ -7,9 +7,8 @@ import '../models/chat_message.dart';
 import '../services/task_storage_service.dart';
 import '../services/voice_service.dart';
 import '../widgets/briefing_dialog.dart';
-import '../widgets/feature_card.dart';
+import 'dashboard_screen.dart';
 import 'my_tasks_screen.dart';
-import 'secretary_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -254,6 +253,15 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('LifePilot AI'),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+            },
+            icon: const Icon(Icons.dashboard),
+            label: const Text('Dashboard'),
+          ),
+        ],
       ),
       body: SafeArea(
         child: CustomScrollView(
@@ -274,44 +282,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   onSubmit: _processUserInput,
                   onTextChanged: () => setState(() {}),
                 ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-              sliver: SliverGrid.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.18,
-                children: [
-                  FeatureCard(
-                    icon: Icons.notifications_active,
-                    title: 'Smart Tasks',
-                    subtitle: 'Never miss a task',
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const SmartRemindersScreen()));
-                    },
-                  ),
-                  const FeatureCard(icon: Icons.note_alt, title: 'Memory Notes', subtitle: 'Capture ideas'),
-                  const FeatureCard(icon: Icons.folder, title: 'Important Documents', subtitle: 'Keep files safe'),
-                  const FeatureCard(icon: Icons.contacts, title: 'Contacts', subtitle: 'People that matter'),
-                  FeatureCard(
-                    icon: Icons.auto_awesome,
-                    title: 'AI Assistant',
-                    subtitle: 'Full-screen chat',
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const SecretaryScreen()));
-                    },
-                  ),
-                  FeatureCard(
-                    icon: Icons.record_voice_over,
-                    title: 'Test Voice',
-                    subtitle: 'Check speech',
-                    onTap: () async {
-                      await VoiceService.speak('LifePilot voice reminder test is working');
-                    },
-                  ),
-                ],
               ),
             ),
           ],
