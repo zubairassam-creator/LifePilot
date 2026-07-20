@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isListening = false;
   bool _isThinking = false;
   bool _isSpeaking = false;
-  static bool _hasShownOpeningBriefingThisSession = false;
+  bool _hasShownOpeningBriefingThisSession = false;
 
   @override
   void initState() {
@@ -37,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _hasShownOpeningBriefingThisSession = true;
       await Future<void>.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
-      await showBriefingDialog(context);
+      await showBriefingDialog(context, speakAutomatically: false);
     });
   }
 
