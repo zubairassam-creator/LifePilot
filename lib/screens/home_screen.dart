@@ -27,17 +27,17 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isListening = false;
   bool _isThinking = false;
   bool _isSpeaking = false;
-  bool _hasShownOpeningBriefingThisSession = false;
+  bool _hasShownBriefingPopup = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (_hasShownOpeningBriefingThisSession) return;
-      _hasShownOpeningBriefingThisSession = true;
+      if (_hasShownBriefingPopup) return;
+      _hasShownBriefingPopup = true;
       await Future<void>.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
-      await showBriefingDialog(context, speakAutomatically: false);
+      await showBriefingDialog(context);
     });
   }
 
