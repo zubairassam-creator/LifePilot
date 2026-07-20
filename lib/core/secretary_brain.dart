@@ -61,7 +61,9 @@ class SecretaryBrain {
     if (normalized.startsWith('remind me')) {
       final due = _dates.dateTimeFromText(normalized);
       final action = normalized.replaceFirst(RegExp(r'^remind me\s+'), '').replaceAll(RegExp(r'\b(today|tomorrow|at \d{1,2}(:\d{2})?\s*(am|pm)?)\b'), '').trim();
-      if (due == null) return result('When should I remind you?', SecretaryIntent.createReminder, .62, {}, const SecretaryAction(SecretaryActionType.clarify));
+      if (due == null) {
+        return result('When should I remind you?', SecretaryIntent.createReminder, .62, {}, const SecretaryAction(SecretaryActionType.clarify));
+      }
       await _saveTask(action.replaceFirst(RegExp(r'^to\s+'), ''), due, ReminderMode.normal);
       return result("I've created your reminder for ${_formatDateTime(due)}.", SecretaryIntent.createReminder, .9, {'dueDate': due.toIso8601String()}, const SecretaryAction(SecretaryActionType.createReminder));
     }
@@ -77,7 +79,9 @@ class SecretaryBrain {
         r"^([a-z ]+?)(?:'s|s)?\s+birthday\b",
       ).firstMatch(normalized)?.group(1)?.trim();
       final date = _dates.dateFromText(normalized);
-      if (person == null || date == null) return result('Whose birthday and date should I save?', SecretaryIntent.storeEvent, .5, {}, const SecretaryAction(SecretaryActionType.clarify));
+      if (person == null || date == null) {
+        return result('Whose birthday and date should I save?', SecretaryIntent.storeEvent, .5, {}, const SecretaryAction(SecretaryActionType.clarify));
+      }
       _lastPerson = _titleCase(person);
       await LifeMemoryRepository.save(_memory(now, input, '${_titleCase(person)} birthday', LifeMemoryType.birthday, person: _titleCase(person), eventDate: date, recurrence: 'yearly'));
       await _saveTask('${_titleCase(person)} birthday', date.subtract(const Duration(days: 7)), ReminderMode.normal, RepeatType.yearly);
@@ -88,19 +92,25 @@ class SecretaryBrain {
       final amount = RegExp(r'(?:₹|rs\.?\s*)\s?([\d,]+)').firstMatch(input.toLowerCase())?.group(1)?.replaceAll(',', '');
       final person = RegExp(r'from ([a-z ]+?)(?: and|$)').firstMatch(normalized)?.group(1)?.trim();
       final due = _dates.dateFromText(normalized);
-      if (person == null || amount == null) return result('Who is the loan with, and how much is it?', SecretaryIntent.storeFinancialObligation, .55, {}, const SecretaryAction(SecretaryActionType.clarify));
+      if (person == null || amount == null) {
+        return result('Who is the loan with, and how much is it?', SecretaryIntent.storeFinancialObligation, .55, {}, const SecretaryAction(SecretaryActionType.clarify));
+      }
       _lastPerson = _titleCase(person);
       await LifeMemoryRepository.save(_memory(now, input, 'Loan from ${_titleCase(person)}', LifeMemoryType.loanTaken, person: _titleCase(person), amount: double.parse(amount), currency: '₹', dueDate: due));
-      if (due != null) await _saveTask('Repay ₹${_formatAmount(double.parse(amount))} to ${_titleCase(person)}', due.subtract(const Duration(days: 7)), ReminderMode.normal);
+      if (due != null) {
+        await _saveTask('Repay ₹${_formatAmount(double.parse(amount))} to ${_titleCase(person)}', due.subtract(const Duration(days: 7)), ReminderMode.normal);
+      }
       return result('You borrowed ₹${_formatAmount(double.parse(amount))} from ${_titleCase(person)}. I’ve recorded the repayment${due == null ? '' : ' due ${_formatDate(due)}'} and will remind you beforehand.', SecretaryIntent.storeFinancialObligation, .92, {}, const SecretaryAction(SecretaryActionType.showHelp));
     }
 
     if (normalized.contains('expir')) {
       final date = _dates.dateFromText(normalized);
-      if (date == null) return result('Which month and date does it expire?', SecretaryIntent.storeExpiry, .55, {}, const SecretaryAction(SecretaryActionType.clarify));
+      if (date == null) {
+        return result('Which month and date does it expire?', SecretaryIntent.storeExpiry, .55, {}, const SecretaryAction(SecretaryActionType.clarify));
+      }
       final subject = normalized.replaceAll(RegExp(r'\b(my|is|expiring|expires|on|certificate)\b'), '').replaceAll(RegExp(r'\b\d{1,2}(st|nd|rd|th)?\b|november|january|february|march|april|may|june|july|august|september|october|december'), '').trim();
       await LifeMemoryRepository.save(_memory(now, input, '$subject expiry', LifeMemoryType.expiry, subject: '$subject certificate', dueDate: date));
-      for (final days in [30, 7, 0]) { final reminder = date.subtract(Duration(days: days)); if (reminder.isAfter(now)) await _saveTask('Renew $subject certificate', reminder, ReminderMode.normal); }
+      for (final days in [30, 7, 0]) { final reminder = date.subtract(Duration(days: days)); if (reminder.isAfter(now)) { await _saveTask('Renew $subject certificate', reminder, ReminderMode.normal); } }
       return result('Your $subject certificate expires on ${_formatMonthDay(date)}. I’ve saved it and will remind you before it expires.', SecretaryIntent.storeExpiry, .9, {}, const SecretaryAction(SecretaryActionType.showHelp));
     }
 
@@ -109,10 +119,10 @@ class SecretaryBrain {
 
   LifeMemory _memory(DateTime now, String original, String title, LifeMemoryType type, {String? person, String? subject, String? location, DateTime? eventDate, DateTime? dueDate, String? recurrence, double? amount, String? currency}) => LifeMemory(id: now.microsecondsSinceEpoch.toString(), originalStatement: original, title: title.trim(), type: type, person: person, subject: subject, location: location, eventDate: eventDate, dueDate: dueDate, recurrence: recurrence, amount: amount, currency: currency, createdAt: now, updatedAt: now);
 
-  Future<void> _saveTask(String title, DateTime due, ReminderMode mode, [RepeatType repeat = RepeatType.none]) async { final now = DateTime.now(); final task = LifePilotTask(id: now.microsecondsSinceEpoch.toString(), title: title, dueDateTime: due, reminderEnabled: true, reminderMode: mode, repeatType: repeat, isAiGenerated: true, createdAt: now, updatedAt: now); await TaskStorageService.addTask(task); try { if (due.isAfter(now)) await NotificationService.scheduleTask(task); } catch (_) {} }
+  Future<void> _saveTask(String title, DateTime due, ReminderMode mode, [RepeatType repeat = RepeatType.none]) async { final now = DateTime.now(); final task = LifePilotTask(id: now.microsecondsSinceEpoch.toString(), title: title, dueDateTime: due, reminderEnabled: true, reminderMode: mode, repeatType: repeat, isAiGenerated: true, createdAt: now, updatedAt: now); await TaskStorageService.addTask(task); try { if (due.isAfter(now)) { await NotificationService.scheduleTask(task); } } catch (_) {} }
   bool _isLocationRecall(String t) => t.startsWith('where is') || t.startsWith('where did i keep');
   bool _isSchedule(String t) => t.contains('schedule') || t.contains('what do i have') || t.contains('am i busy') || t.contains('tomorrow work') || t.contains('did i miss');
-  int _taskCount(ScheduleScope s) { final tasks = TaskStorageService.getAllTasks(); final now = DateTime.now(); return tasks.where((t) { final due = t.dueDateTime; if (s == ScheduleScope.completed) return t.status == TaskStatus.completed; if (s == ScheduleScope.missed) return t.status != TaskStatus.completed && due != null && due.isBefore(now); if (due == null || t.status != TaskStatus.pending) return false; final target = s == ScheduleScope.tomorrow ? DateTime(now.year, now.month, now.day + 1) : DateTime(now.year, now.month, now.day); return due.year == target.year && due.month == target.month && due.day == target.day; }).length; }
+  int _taskCount(ScheduleScope s) { final tasks = TaskStorageService.getAllTasks(); final now = DateTime.now(); return tasks.where((t) { final due = t.dueDateTime; if (s == ScheduleScope.completed) { return t.status == TaskStatus.completed; } if (s == ScheduleScope.missed) { return t.status != TaskStatus.completed && due != null && due.isBefore(now); } if (due == null || t.status != TaskStatus.pending) { return false; } final target = s == ScheduleScope.tomorrow ? DateTime(now.year, now.month, now.day + 1) : DateTime(now.year, now.month, now.day); return due.year == target.year && due.month == target.month && due.day == target.day; }).length; }
   String _filter(ScheduleScope s) => s == ScheduleScope.tomorrow ? 'tomorrow' : s == ScheduleScope.completed ? 'completed' : s == ScheduleScope.missed ? 'missed' : 'today';
   String? _personAfter(String t, String word) => RegExp('$word ([a-z ]+)\$').firstMatch(t)?.group(1)?.trim();
   bool _sameName(String? a, String b) => a?.toLowerCase().replaceAll(' ', '') == b.toLowerCase().replaceAll(' ', '');

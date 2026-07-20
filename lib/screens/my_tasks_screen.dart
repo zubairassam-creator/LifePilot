@@ -51,7 +51,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
   Future<void> loadSavedTasks() async {
     final savedTasks = TaskStorageService.getAllTasks();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       tasks
@@ -137,7 +139,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
   Future<void> createTask() async {
     await VoiceService.speak('Please tell me the reminder');
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final newTask = await Navigator.push<LifePilotTask>(
       context,
@@ -146,7 +150,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       ),
     );
 
-    if (newTask == null) return;
+    if (newTask == null) {
+      return;
+    }
 
     try {
       await TaskStorageService.addTask(newTask);
@@ -155,14 +161,18 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       }
       await loadSavedTasks();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Reminder saved and notification scheduled.'),
         ),
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -181,7 +191,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       ),
     );
 
-    if (updatedTask == null) return;
+    if (updatedTask == null) {
+      return;
+    }
 
     try {
       await NotificationService.cancelTask(oldTask);
@@ -191,7 +203,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       await TaskStorageService.updateTask(updatedTask);
       await loadSavedTasks();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reminder updated successfully.')),
       );
@@ -202,7 +216,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
         }
       } catch (_) {}
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not update reminder notification.')),
       );
@@ -266,13 +282,17 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
   }
 
   Future<void> deleteTask(LifePilotTask task) async {
-    if (!await confirmDelete(task)) return;
+    if (!await confirmDelete(task)) {
+      return;
+    }
 
     await NotificationService.cancelTask(task);
     await TaskStorageService.deleteTask(task.id);
     await loadSavedTasks();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Reminder deleted'),
@@ -309,14 +329,18 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       }
     }).toList();
 
-    if (!await confirmBulkDelete(candidates.length, getFilterName(scope))) return;
+    if (!await confirmBulkDelete(candidates.length, getFilterName(scope))) {
+      return;
+    }
 
     for (final task in candidates) {
       await TaskStorageService.deleteTask(task.id);
     }
     await loadSavedTasks();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Deleted ${candidates.length} task(s).')),
     );
@@ -326,7 +350,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     final selected = tasks
         .where((task) => selectedTaskIds.contains(task.id))
         .toList();
-    if (!await confirmBulkDelete(selected.length, 'selected')) return;
+    if (!await confirmBulkDelete(selected.length, 'selected')) {
+      return;
+    }
     for (final task in selected) {
       await TaskStorageService.deleteTask(task.id);
     }
@@ -338,7 +364,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
   }
 
   Future<bool> confirmBulkDelete(int count, String scope) async {
-    if (count == 0) return false;
+    if (count == 0) {
+      return false;
+    }
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
