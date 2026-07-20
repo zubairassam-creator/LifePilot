@@ -62,7 +62,7 @@ class LifePilotUnderstandingDialog {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(.12),
+                    color: color.withValues(alpha: .12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(

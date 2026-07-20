@@ -2,8 +2,7 @@ import 'input_normalizer.dart';
 import 'secretary_intents.dart';
 
 class IntentEngine {
-  const IntentEngine({InputNormalizer normalizer = const InputNormalizer()})
-    : _normalizer = normalizer;
+  const IntentEngine({this._normalizer = const InputNormalizer()});
 
   final InputNormalizer _normalizer;
 
@@ -106,20 +105,40 @@ class IntentEngine {
   bool _isHelp(String t) => _hasAny(t, ['what can you do', 'help', 'commands', 'assist me']);
 
   ScheduleScope? _extractScheduleScope(String t) {
-    if (_hasAny(t, ['today', 'pending today'])) return ScheduleScope.today;
-    if (t.contains('tomorrow')) return ScheduleScope.tomorrow;
-    if (_hasAny(t, ['this week', 'week schedule'])) return ScheduleScope.thisWeek;
-    if (t.contains('completed')) return ScheduleScope.completed;
-    if (t.contains('missed')) return ScheduleScope.missed;
-    if (t.contains('upcoming')) return ScheduleScope.upcoming;
-    if (t.contains('all')) return ScheduleScope.all;
+    if (_hasAny(t, ['today', 'pending today'])) {
+      return ScheduleScope.today;
+    }
+    if (t.contains('tomorrow')) {
+      return ScheduleScope.tomorrow;
+    }
+    if (_hasAny(t, ['this week', 'week schedule'])) {
+      return ScheduleScope.thisWeek;
+    }
+    if (t.contains('completed')) {
+      return ScheduleScope.completed;
+    }
+    if (t.contains('missed')) {
+      return ScheduleScope.missed;
+    }
+    if (t.contains('upcoming')) {
+      return ScheduleScope.upcoming;
+    }
+    if (t.contains('all')) {
+      return ScheduleScope.all;
+    }
     return null;
   }
 
   DeletionScope _extractDeletionScope(String t) {
-    if (t.contains('completed')) return DeletionScope.completed;
-    if (t.contains('missed')) return DeletionScope.missed;
-    if (t.contains('all') || t.contains('clear reminder')) return DeletionScope.all;
+    if (t.contains('completed')) {
+      return DeletionScope.completed;
+    }
+    if (t.contains('missed')) {
+      return DeletionScope.missed;
+    }
+    if (t.contains('all') || t.contains('clear reminder')) {
+      return DeletionScope.all;
+    }
     return DeletionScope.unknown;
   }
 
@@ -128,8 +147,12 @@ class IntentEngine {
     final scope = _extractScheduleScope(t);
     String? time;
     final match = RegExp(r'\b(at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b').firstMatch(t);
-    if (match != null) time = match.group(0);
-    if (title.isEmpty) title = '';
+    if (match != null) {
+      time = match.group(0);
+    }
+    if (title.isEmpty) {
+      title = '';
+    }
     return {'title': title.isEmpty ? null : title, 'date': scope?.name, 'time': time, 'priority': null};
   }
 
