@@ -7,6 +7,7 @@ import '../models/chat_message.dart';
 import '../models/lifepilot_task.dart';
 import '../services/task_storage_service.dart';
 import '../services/voice_service.dart';
+import '../widgets/briefing_dialog.dart';
 import 'my_tasks_screen.dart';
 
 class SecretaryScreen extends StatefulWidget {
@@ -65,6 +66,7 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
 
     if (!mounted) return;
 
+    final opensBriefing = response.action.type == SecretaryActionType.showBriefing;
     setState(() {
       _isThinking = false;
 
@@ -72,10 +74,15 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
         ChatMessage(text: response.response, sender: MessageSender.assistant),
       );
 
-      _isSpeaking = true;
+      _isSpeaking = !opensBriefing;
     });
 
     _scrollToBottom();
+
+    if (opensBriefing) {
+      await _executeSecretaryAction(response.action);
+      return;
+    }
 
     await VoiceService.speak(response.response);
 
@@ -99,6 +106,13 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
           MaterialPageRoute(
             builder: (context) => SmartRemindersScreen(initialFilter: filter),
           ),
+        );
+        return;
+      case SecretaryActionType.showBriefing:
+        await showBriefingDialog(
+          context,
+          mode: BriefingDialogMode.schedule,
+          speakAutomatically: true,
         );
         return;
       case SecretaryActionType.createReminder:

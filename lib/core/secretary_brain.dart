@@ -55,7 +55,7 @@ class SecretaryBrain {
       final scope = normalized.contains('tomorrow') ? ScheduleScope.tomorrow : normalized.contains('missed') ? ScheduleScope.missed : normalized.contains('completed') ? ScheduleScope.completed : ScheduleScope.today;
       final count = _taskCount(scope);
       final label = scope == ScheduleScope.tomorrow ? 'Tomorrow' : scope == ScheduleScope.today ? 'Today' : scope.name;
-      return result(count == 0 ? '$label is currently free.' : 'You have $count task(s) for ${label.toLowerCase()}. Opening ${label.toLowerCase()} schedule.', SecretaryIntent.retrieveSchedule, .9, {'scope': scope.name}, SecretaryAction(SecretaryActionType.navigateTasks, {'filter': _filter(scope)}));
+      return result(count == 0 ? '$label is currently free.' : 'You have $count task(s) for ${label.toLowerCase()}. Opening ${label.toLowerCase()} schedule.', SecretaryIntent.retrieveSchedule, .9, {'scope': scope.name}, SecretaryAction(SecretaryActionType.showBriefing, {'mode': 'schedule'}));
     }
 
     if (normalized.startsWith('remind me')) {
