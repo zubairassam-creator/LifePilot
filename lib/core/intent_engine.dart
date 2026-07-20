@@ -91,7 +91,18 @@ class IntentEngine {
           response: response, action: action, originalText: original, normalizedText: normalized);
 
   bool _isViewSchedule(String t) =>
-      _hasAny(t, ['schedule', 'what do i have', 'am i busy', 'pending', 'upcoming']) &&
+      _hasAny(t, [
+        'schedule',
+        'briefing',
+        'what do i have',
+        'tell me today',
+        'today task',
+        'today tasks',
+        "today's tasks",
+        'am i busy',
+        'pending',
+        'upcoming',
+      ]) &&
       !_hasAny(t, ['set reminder', 'make reminder', 'create reminder']);
 
   bool _isOpenTasks(String t) => _hasAny(t, ['smart task', 'show reminder', 'my reminder', 'task list']) || t == 'task' || t == 'todo';

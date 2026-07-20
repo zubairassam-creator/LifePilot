@@ -27,14 +27,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isListening = false;
   bool _isThinking = false;
   bool _isSpeaking = false;
-  bool _hasShownOpeningBriefing = false;
+  static bool _hasShownOpeningBriefingThisSession = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (_hasShownOpeningBriefing) return;
-      _hasShownOpeningBriefing = true;
+      if (_hasShownOpeningBriefingThisSession) return;
+      _hasShownOpeningBriefingThisSession = true;
       await Future<void>.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
       await showBriefingDialog(context);
@@ -295,7 +295,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   const FeatureCard(icon: Icons.note_alt, title: 'Memory Notes', subtitle: 'Capture ideas'),
                   const FeatureCard(icon: Icons.folder, title: 'Important Documents', subtitle: 'Keep files safe'),
                   const FeatureCard(icon: Icons.contacts, title: 'Contacts', subtitle: 'People that matter'),
-                  FeatureCard(icon: Icons.wb_sunny, title: 'Daily Briefing', subtitle: 'Start your day', onTap: () => showBriefingDialog(context)),
                   FeatureCard(
                     icon: Icons.auto_awesome,
                     title: 'AI Assistant',
