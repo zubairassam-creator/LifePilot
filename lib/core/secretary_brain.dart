@@ -121,7 +121,17 @@ class SecretaryBrain {
 
   Future<void> _saveTask(String title, DateTime due, ReminderMode mode, [RepeatType repeat = RepeatType.none]) async { final now = DateTime.now(); final task = LifePilotTask(id: now.microsecondsSinceEpoch.toString(), title: title, dueDateTime: due, reminderEnabled: true, reminderMode: mode, repeatType: repeat, isAiGenerated: true, createdAt: now, updatedAt: now); await TaskStorageService.addTask(task); try { if (due.isAfter(now)) { await NotificationService.scheduleTask(task); } } catch (_) {} }
   bool _isLocationRecall(String t) => t.startsWith('where is') || t.startsWith('where did i keep');
-  bool _isSchedule(String t) => t.contains('schedule') || t.contains('what do i have') || t.contains('am i busy') || t.contains('tomorrow work') || t.contains('did i miss');
+  bool _isSchedule(String t) =>
+      t.contains('schedule') ||
+      t.contains('briefing') ||
+      t.contains('what do i have') ||
+      t.contains('tell me today') ||
+      t.contains('today task') ||
+      t.contains('today tasks') ||
+      t.contains("today's tasks") ||
+      t.contains('am i busy') ||
+      t.contains('tomorrow work') ||
+      t.contains('did i miss');
   int _taskCount(ScheduleScope s) { final tasks = TaskStorageService.getAllTasks(); final now = DateTime.now(); return tasks.where((t) { final due = t.dueDateTime; if (s == ScheduleScope.completed) { return t.status == TaskStatus.completed; } if (s == ScheduleScope.missed) { return t.status != TaskStatus.completed && due != null && due.isBefore(now); } if (due == null || t.status != TaskStatus.pending) { return false; } final target = s == ScheduleScope.tomorrow ? DateTime(now.year, now.month, now.day + 1) : DateTime(now.year, now.month, now.day); return due.year == target.year && due.month == target.month && due.day == target.day; }).length; }
   String _filter(ScheduleScope s) => s == ScheduleScope.tomorrow ? 'tomorrow' : s == ScheduleScope.completed ? 'completed' : s == ScheduleScope.missed ? 'missed' : 'today';
   String? _personAfter(String t, String word) => RegExp('$word ([a-z ]+)\$').firstMatch(t)?.group(1)?.trim();

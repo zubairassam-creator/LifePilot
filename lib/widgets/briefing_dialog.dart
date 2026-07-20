@@ -7,16 +7,31 @@ import '../services/voice_service.dart';
 
 enum BriefingDialogMode { dailyBriefing, schedule }
 
+bool _isBriefingDialogOpen = false;
+
 Future<void> showBriefingDialog(
   BuildContext context, {
   BriefingDialogMode mode = BriefingDialogMode.dailyBriefing,
   bool speakAutomatically = true,
-}) {
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    builder: (context) => _BriefingDialog(mode: mode, speakAutomatically: speakAutomatically),
-  );
+}) async {
+  if (_isBriefingDialogOpen) return;
+
+  _isBriefingDialogOpen = true;
+  try {
+    await VoiceService.stop();
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => _BriefingDialog(
+        mode: mode,
+        speakAutomatically: speakAutomatically,
+      ),
+    );
+  } finally {
+    _isBriefingDialogOpen = false;
+    await VoiceService.stop();
+  }
 }
 
 class _BriefingDialog extends StatefulWidget {
@@ -229,7 +244,11 @@ class _BriefingContent extends StatelessWidget {
         _TaskSection(icon: Icons.warning_amber_rounded, title: 'Overdue', tasks: data.overdue),
         _TaskSection(icon: Icons.today_outlined, title: 'Today', tasks: data.today),
         _TaskSection(icon: Icons.upcoming_outlined, title: 'Upcoming', tasks: data.upcoming),
-        _MemorySection(icon: Icons.event_busy_outlined, title: 'Expiring Soon', memories: data.expiringSoon),
+        _MemorySection(
+          icon: Icons.event_busy_outlined,
+          title: 'Expiries',
+          memories: data.expiringSoon,
+        ),
         _MemorySection(icon: Icons.celebration_outlined, title: 'Birthdays and Events', memories: data.birthdaysAndEvents),
         _MemorySection(icon: Icons.account_balance_wallet_outlined, title: 'Open Loans', memories: data.openLoans, isLoan: true),
       ],
