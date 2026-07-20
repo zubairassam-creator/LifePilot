@@ -1,15 +1,68 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../services/voice_service.dart';
-import '../widgets/feature_card.dart';
 import 'my_tasks_screen.dart';
 import 'secretary_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
+  static const double _outerPadding = 16;
+  static const double _gridGap = 12;
+  static const double _minimumCardHeight = 132;
+
   @override
   Widget build(BuildContext context) {
+    final modules = <_DashboardModule>[
+      _DashboardModule(
+        icon: Icons.notifications_active,
+        title: 'Smart Tasks',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SmartRemindersScreen(),
+            ),
+          );
+        },
+      ),
+      const _DashboardModule(
+        icon: Icons.note_alt,
+        title: 'Memory Notes',
+      ),
+      const _DashboardModule(
+        icon: Icons.folder,
+        title: 'Important Documents',
+      ),
+      const _DashboardModule(
+        icon: Icons.contacts,
+        title: 'Contacts',
+      ),
+      _DashboardModule(
+        icon: Icons.auto_awesome,
+        title: 'AI Assistant',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SecretaryScreen(),
+            ),
+          );
+        },
+      ),
+      _DashboardModule(
+        icon: Icons.record_voice_over,
+        title: 'Test Voice',
+        onTap: () async {
+          await VoiceService.speak(
+            'LifePilot voice reminder test is working',
+          );
+        },
+      ),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
@@ -17,65 +70,111 @@ class DashboardScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: SafeArea(
-        child: GridView.count(
-          padding: const EdgeInsets.all(16),
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.18,
-          children: [
-            FeatureCard(
-              icon: Icons.notifications_active,
-              title: 'Smart Tasks',
-              subtitle: 'Never miss a task',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SmartRemindersScreen(),
-                  ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final availableHeight = constraints.maxHeight;
+            final targetCardHeight =
+                (availableHeight - (_outerPadding * 2) - (_gridGap * 2)) / 3;
+            final cardHeight = math.max(_minimumCardHeight, targetCardHeight);
+
+            return GridView.builder(
+              padding: const EdgeInsets.all(_outerPadding),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: _gridGap,
+                mainAxisSpacing: _gridGap,
+                mainAxisExtent: cardHeight,
+              ),
+              itemCount: modules.length,
+              itemBuilder: (context, index) {
+                final module = modules[index];
+                return _DashboardCard(
+                  icon: module.icon,
+                  title: module.title,
+                  onTap: module.onTap,
                 );
               },
-            ),
-            const FeatureCard(
-              icon: Icons.note_alt,
-              title: 'Memory Notes',
-              subtitle: 'Capture ideas',
-            ),
-            const FeatureCard(
-              icon: Icons.folder,
-              title: 'Important Documents',
-              subtitle: 'Keep files safe',
-            ),
-            const FeatureCard(
-              icon: Icons.contacts,
-              title: 'Contacts',
-              subtitle: 'People that matter',
-            ),
-            FeatureCard(
-              icon: Icons.auto_awesome,
-              title: 'AI Assistant',
-              subtitle: 'Full-screen chat',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SecretaryScreen(),
-                  ),
-                );
-              },
-            ),
-            FeatureCard(
-              icon: Icons.record_voice_over,
-              title: 'Test Voice',
-              subtitle: 'Check speech',
-              onTap: () async {
-                await VoiceService.speak(
-                  'LifePilot voice reminder test is working',
-                );
-              },
-            ),
-          ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardModule {
+  final IconData icon;
+  final String title;
+  final VoidCallback? onTap;
+
+  const _DashboardModule({
+    required this.icon,
+    required this.title,
+    this.onTap,
+  });
+}
+
+class _DashboardCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback? onTap;
+
+  const _DashboardCard({
+    required this.icon,
+    required this.title,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 1.5,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
+      surfaceTintColor: colorScheme.surfaceTint.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: colorScheme.primary.withValues(alpha: 0.08),
+        highlightColor: colorScheme.primary.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.primary.withValues(alpha: 0.10),
+                ),
+                child: Icon(
+                  icon,
+                  size: 30,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Flexible(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
