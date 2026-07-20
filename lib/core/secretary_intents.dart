@@ -21,6 +21,7 @@ enum DeletionScope { completed, missed, all, unknown }
 
 enum SecretaryActionType {
   navigateTasks,
+  showBriefing,
   createReminder,
   deleteTasks,
   showHelp,

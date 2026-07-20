@@ -4,11 +4,9 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../core/lifepilot_core.dart';
 import '../core/secretary_intents.dart';
 import '../models/chat_message.dart';
-import '../models/life_memory.dart';
-import '../models/lifepilot_task.dart';
-import '../services/life_memory_repository.dart';
 import '../services/task_storage_service.dart';
 import '../services/voice_service.dart';
+import '../widgets/briefing_dialog.dart';
 import '../widgets/feature_card.dart';
 import 'my_tasks_screen.dart';
 import 'secretary_screen.dart';
@@ -29,6 +27,19 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isListening = false;
   bool _isThinking = false;
   bool _isSpeaking = false;
+  bool _hasShownOpeningBriefing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (_hasShownOpeningBriefing) return;
+      _hasShownOpeningBriefing = true;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      await showBriefingDialog(context);
+    });
+  }
 
   final List<ChatMessage> _messages = [
     ChatMessage(
@@ -36,22 +47,6 @@ class _HomeScreenState extends State<HomeScreen> {
       sender: MessageSender.assistant,
     ),
   ];
-
-  Map<String, int> _briefing() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    final tasks = TaskStorageService.getAllTasks();
-    final memories = LifeMemoryRepository.getAll();
-    return {
-      'overdue': tasks.where((t) => t.status != TaskStatus.completed && t.dueDateTime != null && t.dueDateTime!.isBefore(now)).length,
-      'today': tasks.where((t) => t.status == TaskStatus.pending && t.dueDateTime != null && t.dueDateTime!.year == today.year && t.dueDateTime!.month == today.month && t.dueDateTime!.day == today.day).length,
-      'upcoming': tasks.where((t) => t.status == TaskStatus.pending && t.dueDateTime != null && t.dueDateTime!.isAfter(tomorrow)).length,
-      'expiries': memories.where((m) => m.type == LifeMemoryType.expiry && m.dueDate != null && m.dueDate!.difference(now).inDays <= 45).length,
-      'events': memories.where((m) => (m.type == LifeMemoryType.birthday || m.type == LifeMemoryType.event) && m.eventDate != null).length,
-      'loans': memories.where((m) => m.type == LifeMemoryType.loanTaken && m.status == LifeMemoryStatus.open).length,
-    };
-  }
 
   void _scrollChatToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,12 +76,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final response = await LifePilotCore.instance.process(trimmedText);
     if (!mounted) return;
 
+    final opensBriefing = response.action.type == SecretaryActionType.showBriefing;
     setState(() {
       _isThinking = false;
       _messages.add(ChatMessage(text: response.response, sender: MessageSender.assistant));
-      _isSpeaking = true;
+      _isSpeaking = !opensBriefing;
     });
     _scrollChatToBottom();
+
+    if (opensBriefing) {
+      await _executeSecretaryAction(response.action);
+      return;
+    }
 
     await VoiceService.speak(response.response);
     if (!mounted) return;
@@ -107,6 +108,13 @@ class _HomeScreenState extends State<HomeScreen> {
         await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => SmartRemindersScreen(initialFilter: filter)),
+        );
+        return;
+      case SecretaryActionType.showBriefing:
+        await showBriefingDialog(
+          context,
+          mode: BriefingDialogMode.schedule,
+          speakAutomatically: true,
         );
         return;
       case SecretaryActionType.createReminder:
@@ -239,7 +247,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final briefing = _briefing();
     final hasText = _textController.text.trim().isNotEmpty;
 
     return Scaffold(
@@ -252,10 +259,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              sliver: SliverToBoxAdapter(child: _TodayBriefingCard(briefing: briefing)),
-            ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               sliver: SliverToBoxAdapter(
@@ -292,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const FeatureCard(icon: Icons.note_alt, title: 'Memory Notes', subtitle: 'Capture ideas'),
                   const FeatureCard(icon: Icons.folder, title: 'Important Documents', subtitle: 'Keep files safe'),
                   const FeatureCard(icon: Icons.contacts, title: 'Contacts', subtitle: 'People that matter'),
-                  const FeatureCard(icon: Icons.wb_sunny, title: 'Daily Briefing', subtitle: 'Start your day'),
+                  FeatureCard(icon: Icons.wb_sunny, title: 'Daily Briefing', subtitle: 'Start your day', onTap: () => showBriefingDialog(context)),
                   FeatureCard(
                     icon: Icons.auto_awesome,
                     title: 'AI Assistant',
@@ -312,32 +315,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TodayBriefingCard extends StatelessWidget {
-  const _TodayBriefingCard({required this.briefing});
-
-  final Map<String, int> briefing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Colors.indigo.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Today's Briefing", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('Overdue: ${briefing['overdue']} • Today: ${briefing['today']} • Upcoming: ${briefing['upcoming']}'),
-            const SizedBox(height: 4),
-            Text('Expiries soon: ${briefing['expiries']} • Birthdays/events: ${briefing['events']} • Open loans: ${briefing['loans']}'),
           ],
         ),
       ),

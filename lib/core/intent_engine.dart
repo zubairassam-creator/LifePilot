@@ -38,7 +38,7 @@ class IntentEngine {
         .88,
         {'scope': scope.name},
         _scheduleResponse(scope),
-        SecretaryAction(SecretaryActionType.navigateTasks, {'filter': _filterForScope(scope)}),
+        SecretaryAction(SecretaryActionType.showBriefing, {'mode': 'schedule'}),
       );
     }
 
