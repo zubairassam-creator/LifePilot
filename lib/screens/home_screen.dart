@@ -254,12 +254,12 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         elevation: 0,
         actions: [
-          TextButton.icon(
+          IconButton(
+            tooltip: 'Dashboard',
+            icon: const Icon(Icons.dashboard_outlined),
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
             },
-            icon: const Icon(Icons.dashboard),
-            label: const Text('Dashboard'),
           ),
         ],
       ),
