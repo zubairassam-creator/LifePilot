@@ -6,7 +6,7 @@ class IntentEngine {
 
   final InputNormalizer _normalizer;
 
-  IntentResult recognize(String input) {
+  IntentResult recognize(String input, {bool hasPendingAttachment = false}) {
     final normalized = _normalizer.normalize(input);
     if (normalized.isEmpty) {
       return _result(input, normalized, SecretaryIntent.unknown, .0, {},
@@ -16,11 +16,11 @@ class IntentEngine {
     final scheduleScope = _extractScheduleScope(normalized);
     final deletionScope = _extractDeletionScope(normalized);
 
-    final docCommand = _documentCommand(normalized);
+    final docCommand = _documentCommand(normalized, hasPendingAttachment: hasPendingAttachment);
     if (docCommand != null) {
       final name = _extractDocumentName(normalized, docCommand);
       final response = switch (docCommand) {
-        SecretaryActionType.saveDocument => 'I can save that document securely.',
+        SecretaryActionType.saveDocument => hasPendingAttachment ? 'I can save that document securely.' : 'Please attach or capture the document you want me to save.',
         SecretaryActionType.findDocument => name == null ? 'Opening your important documents.' : 'Looking for $name.',
         SecretaryActionType.openDocument => name == null ? 'Which document should I open?' : 'Opening $name.',
         SecretaryActionType.shareDocument => name == null ? 'Which document should I share?' : 'Preparing to share $name.',
@@ -62,7 +62,10 @@ class IntentEngine {
         .88,
         {'scope': scope.name},
         _scheduleResponse(scope),
-        SecretaryAction(SecretaryActionType.showBriefing, {'mode': 'schedule'}),
+        SecretaryAction(SecretaryActionType.showBriefing, {
+          'mode': 'schedule',
+          'filter': _filterForScope(scope),
+        }),
       );
     }
 
@@ -210,28 +213,84 @@ class IntentEngine {
       };
 
 
-  SecretaryActionType? _documentCommand(String t) {
-    final mentionsDocument = _hasAny(t, ['document', 'aadhaar', 'aadhar', 'uid', 'pan', 'driving licence', 'driving license', 'dl', 'voter id', 'voter card', 'certificate', 'insurance', 'medical record']);
-    if (_hasAny(t, ['list my documents', 'show documents', 'important documents'])) return SecretaryActionType.listDocuments;
+  SecretaryActionType? _documentCommand(String t, {bool hasPendingAttachment = false}) {
+    final mentionsDocument = _mentionsDocument(t);
+    final saveVerb = _hasAny(t, [
+      'save',
+      'store',
+      'keep',
+      'remember this as',
+      'this is my',
+      'this is the',
+      'save as',
+    ]);
+
+    if (_hasAny(t, [
+      'show all my document',
+      'list my document',
+      'open important document',
+      'show saved document',
+      'important document',
+    ])) {
+      return SecretaryActionType.listDocuments;
+    }
+
+    if (hasPendingAttachment && (saveVerb || mentionsDocument)) {
+      return SecretaryActionType.saveDocument;
+    }
+
+    if (saveVerb && _hasAny(t, [' it', ' this', ' file', ' photo', ' document']) &&
+        !hasPendingAttachment) {
+      return SecretaryActionType.saveDocument;
+    }
+
     if (!mentionsDocument) return null;
-    if (_hasAny(t, ['save', 'store', 'keep']) || t.startsWith('this is my')) return SecretaryActionType.saveDocument;
     if (_hasAny(t, ['share', 'send'])) return SecretaryActionType.shareDocument;
     if (_hasAny(t, ['delete', 'remove'])) return SecretaryActionType.deleteDocument;
-    if (_hasAny(t, ['open', 'show', 'view'])) return SecretaryActionType.openDocument;
-    if (_hasAny(t, ['find', 'search'])) return SecretaryActionType.findDocument;
+    if (_hasAny(t, ['open'])) return SecretaryActionType.openDocument;
+    if (_hasAny(t, ['show', 'view', 'find', 'search', 'where is', 'give me', 'i need'])) {
+      return SecretaryActionType.findDocument;
+    }
+    if (saveVerb) return SecretaryActionType.saveDocument;
     return null;
   }
 
+  bool _mentionsDocument(String t) => _hasAny(t, [
+        'document',
+        'file',
+        'photo',
+        'card',
+        'aadhaar',
+        'uid',
+        'pan',
+        'passport',
+        'driving licence',
+        'voter id',
+        'certificate',
+        'insurance',
+        'paper',
+        'medical record',
+        'licence',
+      ]);
+
   String? _extractDocumentName(String t, SecretaryActionType command) {
-    var value = t
-        .replaceAll(RegExp(r'\b(please|document|file|old)\b'), ' ')
-        .replaceAll(RegExp(r'\b(save|store|keep|show|open|view|find|search|share|send|delete|remove|this is|as|it as|this as|my|the)\b'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
     if (command == SecretaryActionType.listDocuments) return null;
-    if (value.isEmpty) return null;
-    return value.split(' ').map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}').join(' ');
+    var value = t;
+    value = value.replaceAll(RegExp(r'\b(show all my documents?|list my documents?|open important documents?|show saved documents?)\b'), ' ');
+    value = value.replaceAll(RegExp(r'\b(please|old|copy)\b'), ' ');
+    value = value.replaceAll(RegExp(r'\b(save it|save this|save as|store this|keep this|remember this as|this is my|this is the|this is|it as|this as)\b'), ' ');
+    value = value.replaceAll(RegExp(r'\b(save|store|keep|show|open|view|find|search|share|send|delete|remove|where is|give me|i need|as|my|the)\b'), ' ');
+    value = value.replaceAll(RegExp(r'\b(document|file|photo)\b'), ' ');
+    value = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (value.isEmpty || value == 'it' || value == 'this') return null;
+    return _titleCase(value);
   }
+
+  String _titleCase(String value) => value
+      .split(' ')
+      .where((word) => word.isNotEmpty)
+      .map((word) => word == 'pan' ? 'PAN' : word == 'aadhaar' ? 'Aadhaar' : '${word[0].toUpperCase()}${word.substring(1)}')
+      .join(' ');
 
   bool _hasAny(String text, List<String> patterns) => patterns.any(text.contains);
 }

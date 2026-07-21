@@ -5,6 +5,7 @@ import '../services/notification_service.dart';
 import '../services/task_storage_service.dart';
 import 'date_time_interpreter.dart';
 import 'input_normalizer.dart';
+import 'intent_engine.dart';
 import 'secretary_intents.dart';
 
 class SecretaryBrain {
@@ -13,9 +14,10 @@ class SecretaryBrain {
 
   final DateTimeInterpreter _dates;
   final InputNormalizer _normalizer = const InputNormalizer();
+  final IntentEngine _intentEngine = const IntentEngine();
   String? _lastPerson;
 
-  Future<IntentResult> processUserInput(String input) async {
+  Future<IntentResult> processUserInput(String input, {bool hasPendingAttachment = false}) async {
     final normalized = _normalizer.normalize(input);
     final now = DateTime.now();
 
@@ -27,6 +29,14 @@ class SecretaryBrain {
     if (normalized.isEmpty) {
       return result("I'm here when you're ready.", SecretaryIntent.unknown, 0, {},
           const SecretaryAction(SecretaryActionType.clarify));
+    }
+
+    final sharedIntent = _intentEngine.recognize(
+      input,
+      hasPendingAttachment: hasPendingAttachment,
+    );
+    if (sharedIntent.intent != SecretaryIntent.unknown) {
+      return sharedIntent;
     }
 
     if (_isLocationRecall(normalized)) {

@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/lifepilot_document.dart';
+import '../core/input_normalizer.dart';
 import 'document_encryption_service.dart';
 
 class DocumentStorageService {
@@ -17,21 +18,31 @@ class DocumentStorageService {
 
   List<LifePilotDocument> getAllDocuments() => _box.values.map(LifePilotDocument.decode).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-  List<LifePilotDocument> search(String query) {
+  List<LifePilotDocument> search(String query) => findMatches(query);
+
+  List<LifePilotDocument> findMatches(String query) {
     final q = _normalize(query);
     if (q.isEmpty) return getAllDocuments();
-    return getAllDocuments().where((d) => _normalize('${d.displayName} ${d.originalFileName} ${d.description ?? ''} ${d.category.label}').contains(q)).toList();
+    final docs = getAllDocuments();
+    final exact = docs.where((d) => _normalize(d.displayName) == q).toList();
+    if (exact.isNotEmpty) return exact;
+    final displayContains = docs.where((d) {
+      final name = _normalize(d.displayName);
+      return name.contains(q) || q.contains(name);
+    }).toList();
+    if (displayContains.isNotEmpty) return displayContains;
+    final allFieldContains = docs.where((d) => _documentText(d).contains(q)).toList();
+    if (allFieldContains.isNotEmpty) return allFieldContains;
+    final qTokens = q.split(' ').where((t) => t.length > 2).toSet();
+    return docs.where((d) {
+      final tokens = _documentText(d).split(' ').where((t) => t.length > 2).toSet();
+      return qTokens.intersection(tokens).length >= (qTokens.length == 1 ? 1 : 2);
+    }).toList();
   }
 
   LifePilotDocument? findBest(String query) {
-    final q = _normalize(_expandSynonyms(query));
-    final docs = getAllDocuments();
-    final exact = docs.where((d) => _normalize(_expandSynonyms(d.displayName)) == q).toList();
-    if (exact.length == 1) return exact.single;
-    final contains = docs.where((d) => _normalize(_expandSynonyms(d.displayName)).contains(q) || q.contains(_normalize(_expandSynonyms(d.displayName)))).toList();
-    if (contains.length == 1) return contains.single;
-    final searched = search(q);
-    return searched.length == 1 ? searched.single : null;
+    final matches = findMatches(query);
+    return matches.length == 1 ? matches.single : null;
   }
 
   Future<LifePilotDocument> save({required PendingDocumentAttachment attachment, required String displayName, required DocumentCategory category, required bool isSensitive, String? description}) async {
@@ -51,6 +62,9 @@ class DocumentStorageService {
     await _box.delete(document.id);
   }
 
-  String _normalize(String value) => value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
-  String _expandSynonyms(String value) => value.toLowerCase().replaceAll('aadhar', 'aadhaar').replaceAll('uid', 'aadhaar').replaceAll('pan card', 'pan').replaceAll('driving license', 'driving licence').replaceAll(RegExp(r'\bdl\b'), 'driving licence').replaceAll('voter card', 'voter id');
+  String _documentText(LifePilotDocument d) => _normalize(
+        '${d.displayName} ${d.originalFileName} ${d.description ?? ''} ${d.category.label}',
+      );
+
+  String _normalize(String value) => const InputNormalizer().normalize(value).replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
 }

@@ -13,6 +13,13 @@ class InputNormalizer {
     text = text.replaceAll(RegExp(r"\bschedules\b"), 'schedule');
     text = text.replaceAll(RegExp(r"\breminders\b"), 'reminder');
     text = text.replaceAll(RegExp(r"\btasks\b"), 'task');
+    text = text.replaceAll(RegExp(r"\baadhar\b|\badhar\b"), 'aadhaar');
+    text = text.replaceAll(RegExp(r"\buid card\b|\buid\b"), 'aadhaar card');
+    text = text.replaceAll(RegExp(r"\bpancard\b"), 'pan card');
+    text = text.replaceAll(RegExp(r"\bdrivers license\b|\bdriver license\b|\bdriving license\b|\bdrivers licence\b|\bdriver licence\b"), 'driving licence');
+    text = text.replaceAll(RegExp(r"\bdl\b"), 'driving licence');
+    text = text.replaceAll(RegExp(r"\bvoter card\b"), 'voter id');
+    text = text.replaceAll(RegExp(r"\bpassport document\b"), 'passport');
     text = text.replaceAll(RegExp(r"[^a-z0-9'\s]"), ' ');
     text = text.replaceAll("don't", 'do not');
     text = text.replaceAll("'", '');
