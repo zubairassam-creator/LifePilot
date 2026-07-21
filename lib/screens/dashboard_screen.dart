@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../services/voice_service.dart';
+import 'important_documents_screen.dart';
 import 'my_tasks_screen.dart';
 import 'secretary_screen.dart';
 
@@ -32,9 +33,17 @@ class DashboardScreen extends StatelessWidget {
         icon: Icons.note_alt,
         title: 'Memory Notes',
       ),
-      const _DashboardModule(
+      _DashboardModule(
         icon: Icons.folder,
         title: 'Important Documents',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ImportantDocumentsScreen(),
+            ),
+          );
+        },
       ),
       const _DashboardModule(
         icon: Icons.contacts,

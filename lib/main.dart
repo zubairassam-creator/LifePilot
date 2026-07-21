@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'models/lifepilot_task.dart';
 import 'screens/home_screen.dart';
 import 'services/life_memory_repository.dart';
+import 'services/document_storage_service.dart';
 import 'services/notification_service.dart';
 import 'services/sync_service.dart';
 import 'services/task_storage_service.dart';
@@ -26,6 +27,7 @@ Future<void> main() async {
   await SyncService.initialize();
   await TaskStorageService.initialize();
   await LifeMemoryRepository.initialize();
+  await DocumentStorageService.instance.initialize();
   await SyncService.syncPendingChanges();
 
   // Initialize Services

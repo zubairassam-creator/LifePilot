@@ -16,6 +16,31 @@ class IntentEngine {
     final scheduleScope = _extractScheduleScope(normalized);
     final deletionScope = _extractDeletionScope(normalized);
 
+    final docCommand = _documentCommand(normalized);
+    if (docCommand != null) {
+      final name = _extractDocumentName(normalized, docCommand);
+      final response = switch (docCommand) {
+        SecretaryActionType.saveDocument => 'I can save that document securely.',
+        SecretaryActionType.findDocument => name == null ? 'Opening your important documents.' : 'Looking for $name.',
+        SecretaryActionType.openDocument => name == null ? 'Which document should I open?' : 'Opening $name.',
+        SecretaryActionType.shareDocument => name == null ? 'Which document should I share?' : 'Preparing to share $name.',
+        SecretaryActionType.deleteDocument => name == null ? 'Which document should I delete?' : 'Preparing to delete $name.',
+        SecretaryActionType.listDocuments => 'Opening your important documents.',
+        _ => 'Opening your important documents.',
+      };
+      final intent = switch (docCommand) {
+        SecretaryActionType.saveDocument => SecretaryIntent.saveDocument,
+        SecretaryActionType.findDocument => SecretaryIntent.findDocument,
+        SecretaryActionType.openDocument => SecretaryIntent.openDocument,
+        SecretaryActionType.shareDocument => SecretaryIntent.shareDocument,
+        SecretaryActionType.deleteDocument => SecretaryIntent.deleteDocument,
+        SecretaryActionType.listDocuments => SecretaryIntent.listDocuments,
+        _ => SecretaryIntent.findDocument,
+      };
+      return _result(input, normalized, intent, .86, {'name': name}, response, SecretaryAction(docCommand, {'name': name}));
+    }
+
+
     if (_isDeleteTasks(normalized, deletionScope)) {
       return _result(
         input,
@@ -75,7 +100,7 @@ class IntentEngine {
         SecretaryIntent.help,
         .92,
         {},
-        'I can open your schedule, show tasks, create reminders, and manage completed or missed tasks.',
+        'I can open your schedule, show tasks, create reminders, and manage important documents.',
         const SecretaryAction(SecretaryActionType.showHelp),
       );
     }
@@ -183,6 +208,30 @@ class IntentEngine {
         DeletionScope.completed => 'Clearing completed tasks.', DeletionScope.missed => 'Clearing missed tasks.',
         DeletionScope.all => 'Clearing all tasks.', DeletionScope.unknown => 'Which tasks should I delete?',
       };
+
+
+  SecretaryActionType? _documentCommand(String t) {
+    final mentionsDocument = _hasAny(t, ['document', 'aadhaar', 'aadhar', 'uid', 'pan', 'driving licence', 'driving license', 'dl', 'voter id', 'voter card', 'certificate', 'insurance', 'medical record']);
+    if (_hasAny(t, ['list my documents', 'show documents', 'important documents'])) return SecretaryActionType.listDocuments;
+    if (!mentionsDocument) return null;
+    if (_hasAny(t, ['save', 'store', 'keep']) || t.startsWith('this is my')) return SecretaryActionType.saveDocument;
+    if (_hasAny(t, ['share', 'send'])) return SecretaryActionType.shareDocument;
+    if (_hasAny(t, ['delete', 'remove'])) return SecretaryActionType.deleteDocument;
+    if (_hasAny(t, ['open', 'show', 'view'])) return SecretaryActionType.openDocument;
+    if (_hasAny(t, ['find', 'search'])) return SecretaryActionType.findDocument;
+    return null;
+  }
+
+  String? _extractDocumentName(String t, SecretaryActionType command) {
+    var value = t
+        .replaceAll(RegExp(r'\b(please|document|file|old)\b'), ' ')
+        .replaceAll(RegExp(r'\b(save|store|keep|show|open|view|find|search|share|send|delete|remove|this is|as|it as|this as|my|the)\b'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (command == SecretaryActionType.listDocuments) return null;
+    if (value.isEmpty) return null;
+    return value.split(' ').map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}').join(' ');
+  }
 
   bool _hasAny(String text, List<String> patterns) => patterns.any(text.contains);
 }
