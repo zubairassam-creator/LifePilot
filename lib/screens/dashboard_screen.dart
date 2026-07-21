@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../services/voice_service.dart';
+import '../services/secretary_voice_helper.dart';
 import 'important_documents_screen.dart';
 import 'my_tasks_screen.dart';
 import 'secretary_screen.dart';
@@ -65,7 +65,7 @@ class DashboardScreen extends StatelessWidget {
         icon: Icons.record_voice_over,
         title: 'Test Voice',
         onTap: () async {
-          await VoiceService.speak(
+          await SecretaryVoiceHelper.speakOnly(
             'LifePilot voice reminder test is working',
           );
         },

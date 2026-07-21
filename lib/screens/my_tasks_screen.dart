@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/lifepilot_task.dart';
 import '../services/notification_service.dart';
 import '../services/task_storage_service.dart';
-import '../services/voice_service.dart';
+import '../services/secretary_voice_helper.dart';
 import 'reminder_form_screen.dart';
 
 enum ReminderFilter { all, today, tomorrow, upcoming, missed, completed }
@@ -137,7 +137,7 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
   }
 
   Future<void> createTask() async {
-    await VoiceService.speak('Please tell me the reminder');
+    await SecretaryVoiceHelper.speakOnly('Please tell me the reminder');
 
     if (!mounted) {
       return;
