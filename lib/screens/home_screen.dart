@@ -4,10 +4,20 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../core/lifepilot_core.dart';
 import '../core/secretary_intents.dart';
 import '../models/chat_message.dart';
+import '../models/lifepilot_document.dart';
+import '../services/document_auth_service.dart';
+import '../services/document_picker_service.dart';
+import '../services/document_share_service.dart';
+import '../services/document_storage_service.dart';
+import '../widgets/attachment_source_sheet.dart';
+import '../widgets/document_save_sheet.dart';
+import '../widgets/pending_attachment_preview.dart';
 import '../services/task_storage_service.dart';
 import '../services/voice_service.dart';
 import '../widgets/briefing_dialog.dart';
 import 'dashboard_screen.dart';
+import 'document_details_screen.dart';
+import 'important_documents_screen.dart';
 import 'my_tasks_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -27,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isThinking = false;
   bool _isSpeaking = false;
   bool _hasShownBriefingPopup = false;
+  PendingDocumentAttachment? _pendingAttachment;
 
   @override
   void initState() {
@@ -121,6 +132,22 @@ class _HomeScreenState extends State<HomeScreen> {
       case SecretaryActionType.deleteTasks:
         await _deleteTasks(action.payload['scope'] as String?);
         return;
+      case SecretaryActionType.saveDocument:
+        await _savePendingDocument(action.payload['name'] as String?);
+        return;
+      case SecretaryActionType.findDocument:
+      case SecretaryActionType.openDocument:
+        await _openDocumentCommand(action.payload['name'] as String?);
+        return;
+      case SecretaryActionType.shareDocument:
+        await _shareDocumentCommand(action.payload['name'] as String?);
+        return;
+      case SecretaryActionType.deleteDocument:
+        await _deleteDocumentCommand(action.payload['name'] as String?);
+        return;
+      case SecretaryActionType.listDocuments:
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen()));
+        return;
       case SecretaryActionType.showHelp:
       case SecretaryActionType.clarify:
         return;
@@ -147,6 +174,80 @@ class _HomeScreenState extends State<HomeScreen> {
     for (final task in deletable) {
       await TaskStorageService.deleteTask(task.id);
     }
+  }
+
+
+  Future<void> _pickAttachment() async {
+    final source = await AttachmentSourceSheet.show(context);
+    if (source == null) return;
+    final result = await DocumentPickerService.instance.pick(source);
+    if (!mounted) return;
+    if (result.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.error!)));
+      return;
+    }
+    if (result.attachment != null) setState(() => _pendingAttachment = result.attachment);
+  }
+
+  Future<void> _savePendingDocument(String? name) async {
+    final attachment = _pendingAttachment;
+    if (attachment == null) {
+      _addAssistantMessage('Please attach or capture the document you want me to save.');
+      return;
+    }
+    final data = await DocumentSaveSheet.show(context, attachment, name ?? _titleFromFile(attachment.fileName));
+    if (data == null) return;
+    if (data.sensitive) {
+      final auth = await DocumentAuthService.instance.authenticate('Authenticate to save this sensitive document');
+      if (!auth.success) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(auth.message ?? 'Authentication failed.')));
+        return;
+      }
+    }
+    try {
+      await DocumentStorageService.instance.save(attachment: attachment, displayName: data.name, category: data.category, isSensitive: data.sensitive, description: data.description);
+      setState(() => _pendingAttachment = null);
+      _addAssistantMessage('Saved ${data.name} securely in Important Documents.');
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save this document securely.')));
+    }
+  }
+
+  Future<void> _openDocumentCommand(String? name) async {
+    if (name == null) { await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen())); return; }
+    final doc = DocumentStorageService.instance.findBest(name);
+    if (doc == null) { _addAssistantMessage('I couldn’t find a document named $name.'); return; }
+    if (doc.isSensitive) {
+      final auth = await DocumentAuthService.instance.authenticate('Authenticate to open this document');
+      if (!auth.success) return;
+    }
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)));
+  }
+
+  Future<void> _shareDocumentCommand(String? name) async {
+    final doc = name == null ? null : DocumentStorageService.instance.findBest(name);
+    if (doc == null) { _addAssistantMessage(name == null ? 'Which document should I share?' : 'I couldn’t find a document named $name.'); return; }
+    final auth = await DocumentAuthService.instance.authenticate('Authenticate to share this document');
+    if (!auth.success) return;
+    try { await DocumentShareService.instance.share(doc); } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not share this document.'))); }
+  }
+
+  Future<void> _deleteDocumentCommand(String? name) async {
+    final doc = name == null ? null : DocumentStorageService.instance.findBest(name);
+    if (doc == null) { _addAssistantMessage(name == null ? 'Which document should I delete?' : 'I couldn’t find a document named $name.'); return; }
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)));
+  }
+
+  void _addAssistantMessage(String text) {
+    if (!mounted) return;
+    setState(() => _messages.add(ChatMessage(text: text, sender: MessageSender.assistant)));
+    _scrollChatToBottom();
+  }
+
+  String _titleFromFile(String f) {
+    final base = f.replaceFirst(RegExp(r'\.[^.]+$'), '').replaceAll(RegExp(r'[_-]+'), ' ');
+    return base.split(' ').where((w) => w.isNotEmpty).map((w) => '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
   }
 
   ReminderFilter _taskFilter(String? value) {
@@ -274,6 +375,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 onListen: _startListening,
               ),
             ),
+            if (_pendingAttachment != null)
+              PendingAttachmentPreview(
+                attachment: _pendingAttachment!,
+                onRemove: () => setState(() => _pendingAttachment = null),
+              ),
             Expanded(
               child: _ConversationList(
                 messages: _messages,
@@ -290,6 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
         hasText: hasText,
         onListen: _startListening,
         onSubmit: _processUserInput,
+        onAttach: _pickAttachment,
         onTextChanged: () => setState(() {}),
       ),
     );
@@ -389,6 +496,7 @@ class _SecretaryInputBar extends StatelessWidget {
     required this.hasText,
     required this.onListen,
     required this.onSubmit,
+    required this.onAttach,
     required this.onTextChanged,
   });
 
@@ -398,6 +506,7 @@ class _SecretaryInputBar extends StatelessWidget {
   final bool hasText;
   final VoidCallback onListen;
   final ValueChanged<String> onSubmit;
+  final VoidCallback onAttach;
   final VoidCallback onTextChanged;
 
   @override
@@ -423,9 +532,9 @@ class _SecretaryInputBar extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
-                tooltip: 'Attach',
-                icon: const Icon(Icons.attach_file),
-                onPressed: () {},
+                tooltip: 'Add document',
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: onAttach,
               ),
               Expanded(
                 child: TextField(
