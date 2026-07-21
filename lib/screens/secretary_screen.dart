@@ -37,8 +37,8 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _deliverWelcome();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _deliverWelcome();
     });
   }
 
@@ -47,9 +47,27 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
 
     _welcomeDelivered = true;
 
-    await _addAssistantMessageAndSpeak(
-      'I am your personal assistant. How may I help you?',
-    );
+    const message = 'I am your personal assistant. How may I help you?';
+
+    setState(() {
+      _messages.add(
+        ChatMessage(
+          text: message,
+          sender: MessageSender.assistant,
+        ),
+      );
+      _isSpeaking = true;
+    });
+
+    _scrollToBottom();
+
+    await VoiceService.speak(message);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSpeaking = false;
+    });
   }
 
   void _scrollToBottom() {
@@ -105,20 +123,53 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
     ).execute(action);
   }
 
-  Future<void> _pickAttachment() async {
+  Future<void> _showAttachmentOptions() async {
     final source = await AttachmentSourceSheet.show(context);
     if (source == null) return;
-    final result = await DocumentPickerService.instance.pick(source);
-    if (!mounted) return;
-    if (result.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.error!)));
-      return;
+
+    switch (source) {
+      case AttachmentSource.camera:
+        await _pickFromCamera();
+        return;
+      case AttachmentSource.gallery:
+        await _pickFromGallery();
+        return;
+      case AttachmentSource.files:
+        await _pickFromFiles();
+        return;
     }
-    if (result.attachment != null) setState(() => _pendingAttachment = result.attachment);
   }
 
-  Future<void> _addAssistantMessageAndSpeak(String text) async {
-    await _addAssistantMessage(text, speak: true);
+  Future<void> _pickFromCamera() async {
+    await _pickAttachmentFrom(AttachmentSource.camera);
+  }
+
+  Future<void> _pickFromGallery() async {
+    await _pickAttachmentFrom(AttachmentSource.gallery);
+  }
+
+  Future<void> _pickFromFiles() async {
+    await _pickAttachmentFrom(AttachmentSource.files);
+  }
+
+  Future<void> _pickAttachmentFrom(AttachmentSource source) async {
+    final result = await DocumentPickerService.instance.pick(source);
+    if (!mounted) return;
+
+    if (result.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error!)),
+      );
+      return;
+    }
+
+    if (result.attachment != null) {
+      setState(() => _pendingAttachment = result.attachment);
+    }
+  }
+
+  void _removePendingAttachment() {
+    setState(() => _pendingAttachment = null);
   }
 
   Future<void> _addAssistantMessage(String text, {bool speak = true}) async {
@@ -264,12 +315,6 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
 
             const SizedBox(height: 12),
 
-            if (_pendingAttachment != null)
-              PendingAttachmentPreview(
-                attachment: _pendingAttachment!,
-                onRemove: () => setState(() => _pendingAttachment = null),
-              ),
-
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
@@ -324,15 +369,77 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _AssistantInputBar(
+      bottomNavigationBar: _AssistantBottomSection(
+        pendingAttachment: _pendingAttachment,
+        onRemoveAttachment: _removePendingAttachment,
         textController: _textController,
         focusNode: _focusNode,
         isListening: _isListening,
         hasText: hasText,
-        onAttach: _pickAttachment,
+        onAttach: _showAttachmentOptions,
         onListen: _startListening,
         onSubmit: processUserInput,
         onTextChanged: () => setState(() {}),
+      ),
+    );
+  }
+}
+
+class _AssistantBottomSection extends StatelessWidget {
+  const _AssistantBottomSection({
+    required this.pendingAttachment,
+    required this.onRemoveAttachment,
+    required this.textController,
+    required this.focusNode,
+    required this.isListening,
+    required this.hasText,
+    required this.onAttach,
+    required this.onListen,
+    required this.onSubmit,
+    required this.onTextChanged,
+  });
+
+  final PendingDocumentAttachment? pendingAttachment;
+  final VoidCallback onRemoveAttachment;
+  final TextEditingController textController;
+  final FocusNode focusNode;
+  final bool isListening;
+  final bool hasText;
+  final VoidCallback onAttach;
+  final VoidCallback onListen;
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onTextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (pendingAttachment != null)
+              PendingAttachmentPreview(
+                attachment: pendingAttachment!,
+                onRemove: onRemoveAttachment,
+              ),
+            _AssistantInputBar(
+              textController: textController,
+              focusNode: focusNode,
+              isListening: isListening,
+              hasText: hasText,
+              onAttach: onAttach,
+              onListen: onListen,
+              onSubmit: onSubmit,
+              onTextChanged: onTextChanged,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -361,52 +468,38 @@ class _AssistantInputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final bottomInset = mediaQuery.viewInsets.bottom;
-    final bottomPadding =
-        bottomInset > 0 ? bottomInset : mediaQuery.viewPadding.bottom;
-
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: bottomPadding),
-      child: SafeArea(
-        top: false,
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Add document',
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: onAttach,
-              ),
-              Expanded(
-                child: TextField(
-                  controller: textController,
-                  focusNode: focusNode,
-                  textInputAction: TextInputAction.send,
-                  decoration: const InputDecoration(
-                    hintText: "Type a message...",
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => onTextChanged(),
-                  onSubmitted: onSubmit,
-                ),
-              ),
-              const SizedBox(width: 10),
-              FloatingActionButton(
-                mini: true,
-                backgroundColor: !hasText && isListening ? Colors.red : null,
-                foregroundColor: !hasText && isListening ? Colors.white : null,
-                onPressed: () =>
-                    hasText ? onSubmit(textController.text.trim()) : onListen(),
-                child: Icon(hasText ? Icons.send : Icons.mic),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Add document',
+            icon: const Icon(Icons.attach_file),
+            onPressed: onAttach,
           ),
-        ),
+          Expanded(
+            child: TextField(
+              controller: textController,
+              focusNode: focusNode,
+              textInputAction: TextInputAction.send,
+              decoration: const InputDecoration(
+                hintText: "Type a message...",
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (_) => onTextChanged(),
+              onSubmitted: onSubmit,
+            ),
+          ),
+          const SizedBox(width: 10),
+          FloatingActionButton(
+            mini: true,
+            backgroundColor: !hasText && isListening ? Colors.red : null,
+            foregroundColor: !hasText && isListening ? Colors.white : null,
+            onPressed: () =>
+                hasText ? onSubmit(textController.text.trim()) : onListen(),
+            child: Icon(hasText ? Icons.send : Icons.mic),
+          ),
+        ],
       ),
     );
   }
