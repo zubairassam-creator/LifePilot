@@ -120,6 +120,12 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
       case SecretaryActionType.deleteTasks:
         await _deleteTasks(action.payload['scope'] as String?);
         return;
+      case SecretaryActionType.saveDocument:
+      case SecretaryActionType.findDocument:
+      case SecretaryActionType.openDocument:
+      case SecretaryActionType.shareDocument:
+      case SecretaryActionType.deleteDocument:
+      case SecretaryActionType.listDocuments:
       case SecretaryActionType.showHelp:
       case SecretaryActionType.clarify:
         return;

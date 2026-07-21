@@ -5,6 +5,7 @@ import '../core/lifepilot_core.dart';
 import '../core/secretary_intents.dart';
 import '../models/chat_message.dart';
 import '../models/lifepilot_document.dart';
+import '../models/lifepilot_task.dart';
 import '../services/document_auth_service.dart';
 import '../services/document_picker_service.dart';
 import '../services/document_share_service.dart';
