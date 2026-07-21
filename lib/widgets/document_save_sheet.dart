@@ -22,17 +22,80 @@ class _DocumentSaveSheetState extends State<DocumentSaveSheet> {
   DocumentCategory _category = DocumentCategory.identity;
   late bool _sensitive = _category.defaultsSensitive;
   @override void dispose(){_name.dispose(); _desc.dispose(); super.dispose();}
-  @override Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(left:16,right:16,bottom: MediaQuery.of(context).viewInsets.bottom + 16),
-    child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children:[
-      Text('Save document', style: Theme.of(context).textTheme.titleLarge), const SizedBox(height:12),
-      TextField(controller:_name, decoration: const InputDecoration(labelText:'Document name')),
-      DropdownButtonFormField(value:_category, decoration: const InputDecoration(labelText:'Category'), items: DocumentCategory.values.map((c)=>DropdownMenuItem(value:c, child:Text(c.label))).toList(), onChanged:(v){ if(v==null)return; setState((){_category=v; _sensitive=v.defaultsSensitive;});}),
-      TextField(controller:_desc, decoration: const InputDecoration(labelText:'Optional description')),
-      SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Sensitive document'), value:_sensitive, onChanged:(v)=>setState(()=>_sensitive=v)),
-      Text('Original filename: ${widget.attachment.fileName}'), Text('File type: ${widget.attachment.extension.toUpperCase()}'), Text('File size: ${_size(widget.attachment.fileSizeBytes)}'),
-      const SizedBox(height:16), FilledButton(onPressed: _name.text.trim().isEmpty ? null : ()=>Navigator.pop(context, DocumentSaveData(_name.text.trim(), _category, _desc.text.trim().isEmpty?null:_desc.text.trim(), _sensitive)), child: const Text('Save securely')),
-    ])),
-  );
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomPadding = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom + 24
+        : mediaQuery.viewPadding.bottom + 24;
+
+    return SafeArea(
+      bottom: true,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPadding),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: mediaQuery.size.height * 0.9,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('Save document', style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 12),
+                      TextField(controller: _name, decoration: const InputDecoration(labelText: 'Document name')),
+                      DropdownButtonFormField(
+                        value: _category,
+                        decoration: const InputDecoration(labelText: 'Category'),
+                        items: DocumentCategory.values.map((c) => DropdownMenuItem(value: c, child: Text(c.label))).toList(),
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() {
+                            _category = v;
+                            _sensitive = v.defaultsSensitive;
+                          });
+                        },
+                      ),
+                      TextField(controller: _desc, decoration: const InputDecoration(labelText: 'Optional description')),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Sensitive document'),
+                        value: _sensitive,
+                        onChanged: (v) => setState(() => _sensitive = v),
+                      ),
+                      Text('Original filename: ${widget.attachment.fileName}'),
+                      Text('File type: ${widget.attachment.extension.toUpperCase()}'),
+                      Text('File size: ${_size(widget.attachment.fileSizeBytes)}'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _name.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(
+                          context,
+                          DocumentSaveData(
+                            _name.text.trim(),
+                            _category,
+                            _desc.text.trim().isEmpty ? null : _desc.text.trim(),
+                            _sensitive,
+                          ),
+                        ),
+                child: const Text('Save securely'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   String _size(int b) => b < 1024 * 1024 ? '${(b / 1024).toStringAsFixed(1)} KB' : '${(b / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
