@@ -71,6 +71,19 @@ class IntentEngine {
       );
     }
 
+
+    if (_isOpenContacts(normalized)) {
+      return _result(
+        input,
+        normalized,
+        SecretaryIntent.openContacts,
+        .86,
+        {},
+        'Opening your contacts.',
+        const SecretaryAction(SecretaryActionType.openContacts),
+      );
+    }
+
     final docCommand = _documentCommand(normalized, hasPendingAttachment: hasPendingAttachment);
     if (docCommand != null) {
       final name = _extractDocumentName(normalized, docCommand);
@@ -141,6 +154,8 @@ class IntentEngine {
   bool _isDeleteTasks(String t, DeletionScope scope) =>
       _hasAny(t, ['delete', 'clear', 'remove']) &&
       (_hasAny(t, ['task', 'reminder', 'completed', 'missed']) || scope != DeletionScope.unknown);
+
+  bool _isOpenContacts(String t) => _hasAny(t, ['open my contacts', 'show my contacts', 'contacts', 'contact list']);
 
   bool _isHelp(String t) => _hasAny(t, ['what can you do', 'help', 'commands', 'assist me']);
 

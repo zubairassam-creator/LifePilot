@@ -17,6 +17,7 @@ enum SecretaryIntent {
   shareDocument,
   deleteDocument,
   listDocuments,
+  openContacts,
   help,
   unknown,
 }
@@ -36,6 +37,7 @@ enum SecretaryActionType {
   shareDocument,
   deleteDocument,
   listDocuments,
+  openContacts,
   showHelp,
   clarify,
 }

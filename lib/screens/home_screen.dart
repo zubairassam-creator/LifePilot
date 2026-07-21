@@ -1,25 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
-
 import '../core/lifepilot_core.dart';
 import '../core/secretary_intents.dart';
 import '../models/chat_message.dart';
-import '../models/lifepilot_document.dart';
-import '../models/lifepilot_task.dart';
-import '../services/document_auth_service.dart';
 import '../services/document_picker_service.dart';
-import '../services/document_share_service.dart';
-import '../services/document_storage_service.dart';
 import '../widgets/attachment_source_sheet.dart';
-import '../widgets/document_save_sheet.dart';
 import '../widgets/pending_attachment_preview.dart';
-import '../services/task_storage_service.dart';
+import '../services/secretary_action_handler.dart';
+import '../services/secretary_voice_helper.dart';
 import '../services/voice_service.dart';
 import '../widgets/briefing_dialog.dart';
 import 'dashboard_screen.dart';
-import 'document_details_screen.dart';
-import 'important_documents_screen.dart';
-import 'my_tasks_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,7 +19,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final stt.SpeechToText _speech = stt.SpeechToText();
   final ScrollController _chatScrollController = ScrollController();
   final TextEditingController _textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
@@ -91,95 +80,25 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     final opensBriefing = response.action.type == SecretaryActionType.showBriefing;
-    setState(() {
-      _isThinking = false;
-      _messages.add(ChatMessage(text: response.response, sender: MessageSender.assistant));
-      _isSpeaking = !opensBriefing;
-    });
-    _scrollChatToBottom();
+    setState(() => _isThinking = false);
+    await _addAssistantMessage(response.response, speak: !opensBriefing);
 
     if (opensBriefing) {
       await _executeSecretaryAction(response.action);
       return;
     }
 
-    await VoiceService.speak(response.response);
-    if (!mounted) return;
-
-    setState(() {
-      _isSpeaking = false;
-    });
-
     await _executeSecretaryAction(response.action);
   }
 
   Future<void> _executeSecretaryAction(SecretaryAction action) async {
-    if (!mounted) return;
-
-    switch (action.type) {
-      case SecretaryActionType.navigateTasks:
-        final filter = _taskFilter(action.payload['filter'] as String?);
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => SmartRemindersScreen(initialFilter: filter)),
-        );
-        return;
-      case SecretaryActionType.showBriefing:
-        await showBriefingDialog(
-          context,
-          mode: BriefingDialogMode.schedule,
-          speakAutomatically: true,
-        );
-        return;
-      case SecretaryActionType.createReminder:
-        return;
-      case SecretaryActionType.deleteTasks:
-        await _deleteTasks(action.payload['scope'] as String?);
-        return;
-      case SecretaryActionType.saveDocument:
-        await _savePendingDocument(action.payload['name'] as String?);
-        return;
-      case SecretaryActionType.findDocument:
-      case SecretaryActionType.openDocument:
-        await _openDocumentCommand(action.payload['name'] as String?);
-        return;
-      case SecretaryActionType.shareDocument:
-        await _shareDocumentCommand(action.payload['name'] as String?);
-        return;
-      case SecretaryActionType.deleteDocument:
-        await _deleteDocumentCommand(action.payload['name'] as String?);
-        return;
-      case SecretaryActionType.listDocuments:
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen()));
-        return;
-      case SecretaryActionType.showHelp:
-      case SecretaryActionType.clarify:
-        return;
-    }
+    await SecretaryActionHandler(
+      context: context,
+      pendingAttachment: () => _pendingAttachment,
+      clearPendingAttachment: () => setState(() => _pendingAttachment = null),
+      reply: _addAssistantMessage,
+    ).execute(action);
   }
-
-  Future<void> _deleteTasks(String? scope) async {
-    if (scope == null || scope == 'unknown') return;
-    final tasks = TaskStorageService.getAllTasks();
-    final now = DateTime.now();
-    final deletable = tasks.where((task) {
-      final missed = task.status != TaskStatus.completed && task.dueDateTime != null && task.dueDateTime!.isBefore(now);
-      switch (scope) {
-        case 'completed':
-          return task.status == TaskStatus.completed;
-        case 'missed':
-          return missed;
-        case 'all':
-          return true;
-        default:
-          return false;
-      }
-    }).toList();
-    for (final task in deletable) {
-      await TaskStorageService.deleteTask(task.id);
-    }
-  }
-
 
   Future<void> _pickAttachment() async {
     final source = await AttachmentSourceSheet.show(context);
@@ -193,114 +112,24 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result.attachment != null) setState(() => _pendingAttachment = result.attachment);
   }
 
-  Future<void> _savePendingDocument(String? name) async {
-    final attachment = _pendingAttachment;
-    if (attachment == null) {
-      await _addAssistantMessage('Please attach or capture the document you want me to save.');
-      return;
-    }
-    final data = await DocumentSaveSheet.show(context, attachment, name ?? _titleFromFile(attachment.fileName));
-    if (data == null) return;
-    if (data.sensitive) {
-      final auth = await DocumentAuthService.instance.authenticate('Authenticate to save this sensitive document');
-      if (!auth.success) {
-        final message = auth.message ?? 'Authentication failed.';
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-        await _addAssistantMessage(message);
-        return;
-      }
-    }
-    try {
-      await DocumentStorageService.instance.save(attachment: attachment, displayName: data.name, category: data.category, isSensitive: data.sensitive, description: data.description);
-      setState(() => _pendingAttachment = null);
-      await _addAssistantMessage('Your ${data.name} has been saved securely.');
-    } catch (_) {
-      const message = 'Could not save this document securely.';
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      await _addAssistantMessage(message);
-    }
-  }
-
-  Future<void> _openDocumentCommand(String? name) async {
-    if (name == null) { await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen())); return; }
-    final matches = DocumentStorageService.instance.findMatches(name);
-    if (matches.isEmpty) { await _addAssistantMessage(_documentNotFoundMessage(name)); return; }
-    if (matches.length > 1) {
-      await _addAssistantMessage('I found several matching documents. Please choose one.');
-      await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen()));
-      return;
-    }
-    final doc = matches.single;
-    await _addAssistantMessage('I found your ${doc.displayName}.');
-    if (doc.isSensitive) {
-      final auth = await DocumentAuthService.instance.authenticate('Authenticate to open this document');
-      if (!auth.success) return;
-    }
-    if (!mounted) return;
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)));
-  }
-
-  Future<void> _shareDocumentCommand(String? name) async {
-    final matches = name == null ? <LifePilotDocument>[] : DocumentStorageService.instance.findMatches(name);
-    if (matches.length > 1) { await _addAssistantMessage('I found several matching documents. Please choose one.'); return; }
-    final doc = matches.isEmpty ? null : matches.single;
-    if (doc == null) { await _addAssistantMessage(name == null ? 'Which document should I share?' : _documentNotFoundMessage(name)); return; }
-    final auth = await DocumentAuthService.instance.authenticate('Authenticate to share this document');
-    if (!auth.success) return;
-    try {
-      await DocumentShareService.instance.share(doc);
-      await _addAssistantMessage('Your ${doc.displayName} is ready to share.');
-    } catch (_) {
-      const message = 'Could not share this document.';
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      await _addAssistantMessage(message);
-    }
-  }
-
-  Future<void> _deleteDocumentCommand(String? name) async {
-    final matches = name == null ? <LifePilotDocument>[] : DocumentStorageService.instance.findMatches(name);
-    if (matches.length > 1) { await _addAssistantMessage('I found several matching documents. Please choose one.'); return; }
-    final doc = matches.isEmpty ? null : matches.single;
-    if (doc == null) { await _addAssistantMessage(name == null ? 'Which document should I delete?' : _documentNotFoundMessage(name)); return; }
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)));
-  }
 
   Future<void> _addAssistantMessage(String text, {bool speak = true}) async {
     if (!mounted) return;
-    setState(() {
-      _messages.add(ChatMessage(text: text, sender: MessageSender.assistant));
-      _isSpeaking = speak;
-    });
-    _scrollChatToBottom();
-    if (!speak) return;
-    await VoiceService.speak(text);
-    if (!mounted) return;
-    setState(() => _isSpeaking = false);
-  }
-
-  String _documentNotFoundMessage(String name) =>
-      "I couldn't find a document named $name. You can save it first if you haven't already.";
-
-  String _titleFromFile(String f) {
-    final base = f.replaceFirst(RegExp(r'\.[^.]+$'), '').replaceAll(RegExp(r'[_-]+'), ' ');
-    return base.split(' ').where((w) => w.isNotEmpty).map((w) => '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
-  }
-
-  ReminderFilter _taskFilter(String? value) {
-    switch (value) {
-      case 'today':
-        return ReminderFilter.today;
-      case 'tomorrow':
-        return ReminderFilter.tomorrow;
-      case 'upcoming':
-        return ReminderFilter.upcoming;
-      case 'completed':
-        return ReminderFilter.completed;
-      case 'missed':
-        return ReminderFilter.missed;
-      default:
-        return ReminderFilter.all;
-    }
+    await SecretaryVoiceHelper.speakAndDisplay(
+      text,
+      speak: speak,
+      display: (message) async {
+        if (!mounted) return;
+        setState(() {
+          _messages.add(ChatMessage(text: message, sender: MessageSender.assistant));
+        });
+        _scrollChatToBottom();
+      },
+      setSpeaking: (isSpeaking) {
+        if (!mounted) return;
+        setState(() => _isSpeaking = isSpeaking);
+      },
+    );
   }
 
   void _setListeningState(bool isListening) {
@@ -311,63 +140,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startListening() async {
-    if (_isListening) {
-      await _speech.stop();
-      _setListeningState(false);
-      return;
-    }
-
-    final available = await _speech.initialize(
-      onStatus: (status) {
-        final normalizedStatus = status.toLowerCase();
-        if (normalizedStatus == 'listening') {
-          _setListeningState(true);
-        } else if (normalizedStatus == 'notlistening' || normalizedStatus == 'done') {
-          _setListeningState(false);
-        }
-      },
-      onError: (error) {
-        _setListeningState(false);
+    await VoiceService.toggleListening(
+      onListeningChanged: _setListeningState,
+      onFinalResult: _processUserInput,
+      onError: (message) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.errorMsg)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       },
     );
-
-    if (!available) {
-      _setListeningState(false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Speech recognition is not available.')),
-      );
-      return;
-    }
-
-    _setListeningState(true);
-    try {
-      await _speech.listen(
-        onResult: (result) async {
-          if (!mounted || !result.finalResult) return;
-          _setListeningState(false);
-          await _processUserInput(result.recognizedWords);
-        },
-        listenOptions: stt.SpeechListenOptions(
-          listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 5),
-          partialResults: true,
-        ),
-      );
-    } catch (_) {
-      _setListeningState(false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not start speech recognition.')),
-      );
-    }
   }
 
   @override
   void dispose() {
-    _speech.stop();
+    VoiceService.stopListening();
     _chatScrollController.dispose();
     _textController.dispose();
     _focusNode.dispose();
