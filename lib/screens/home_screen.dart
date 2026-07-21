@@ -84,7 +84,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _scrollChatToBottom();
 
-    final response = await LifePilotCore.instance.process(trimmedText);
+    final response = await LifePilotCore.instance.process(
+      trimmedText,
+      hasPendingAttachment: _pendingAttachment != null,
+    );
     if (!mounted) return;
 
     final opensBriefing = response.action.type == SecretaryActionType.showBriefing;
@@ -208,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await DocumentStorageService.instance.save(attachment: attachment, displayName: data.name, category: data.category, isSensitive: data.sensitive, description: data.description);
       setState(() => _pendingAttachment = null);
-      _addAssistantMessage('Saved ${data.name} securely in Important Documents.');
+      _addAssistantMessage('Your ${data.name} has been saved securely.');
     } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save this document securely.')));
     }
@@ -216,8 +219,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openDocumentCommand(String? name) async {
     if (name == null) { await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen())); return; }
-    final doc = DocumentStorageService.instance.findBest(name);
-    if (doc == null) { _addAssistantMessage('I couldn’t find a document named $name.'); return; }
+    final matches = DocumentStorageService.instance.findMatches(name);
+    if (matches.isEmpty) { _addAssistantMessage('I couldn’t find a document named $name.'); return; }
+    if (matches.length > 1) {
+      _addAssistantMessage('I found several matching documents. Please choose one.');
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen()));
+      return;
+    }
+    final doc = matches.single;
+    _addAssistantMessage('I found your ${doc.displayName}.');
     if (doc.isSensitive) {
       final auth = await DocumentAuthService.instance.authenticate('Authenticate to open this document');
       if (!auth.success) return;
@@ -227,7 +237,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _shareDocumentCommand(String? name) async {
-    final doc = name == null ? null : DocumentStorageService.instance.findBest(name);
+    final matches = name == null ? <LifePilotDocument>[] : DocumentStorageService.instance.findMatches(name);
+    if (matches.length > 1) { _addAssistantMessage('I found several matching documents. Please choose one.'); return; }
+    final doc = matches.isEmpty ? null : matches.single;
     if (doc == null) { _addAssistantMessage(name == null ? 'Which document should I share?' : 'I couldn’t find a document named $name.'); return; }
     final auth = await DocumentAuthService.instance.authenticate('Authenticate to share this document');
     if (!auth.success) return;
@@ -235,7 +247,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteDocumentCommand(String? name) async {
-    final doc = name == null ? null : DocumentStorageService.instance.findBest(name);
+    final matches = name == null ? <LifePilotDocument>[] : DocumentStorageService.instance.findMatches(name);
+    if (matches.length > 1) { _addAssistantMessage('I found several matching documents. Please choose one.'); return; }
+    final doc = matches.isEmpty ? null : matches.single;
     if (doc == null) { _addAssistantMessage(name == null ? 'Which document should I delete?' : 'I couldn’t find a document named $name.'); return; }
     await Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)));
   }

@@ -12,9 +12,9 @@ class LifePilotCore {
   final SecretaryBrain brain = SecretaryBrain();
   final MemoryEngine memory = MemoryEngine();
 
-  Future<IntentResult> process(String input) async {
+  Future<IntentResult> process(String input, {bool hasPendingAttachment = false}) async {
     memory.addUserMessage(input);
-    final result = await brain.processUserInput(input);
+    final result = await brain.processUserInput(input, hasPendingAttachment: hasPendingAttachment);
     memory.addAssistantMessage(result.response);
     return result;
   }

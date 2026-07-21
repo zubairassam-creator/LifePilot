@@ -34,4 +34,58 @@ void main() {
         SecretaryIntent.createReminder);
     expect(engine.recognize('what can you do').intent, SecretaryIntent.help);
   });
+
+  test('recognizes document commands with pending attachments', () {
+  const engine = IntentEngine();
+
+  final card = engine.recognize('This is my card, save it', hasPendingAttachment: true);
+  expect(card.intent, SecretaryIntent.saveDocument);
+  expect(card.action.type, SecretaryActionType.saveDocument);
+  expect(card.action.payload['name'], 'Card');
+
+  final aadhaar = engine.recognize('This is my Aadhaar card', hasPendingAttachment: true);
+  expect(aadhaar.intent, SecretaryIntent.saveDocument);
+  expect(aadhaar.action.payload['name'], 'Aadhaar Card');
+
+  expect(engine.recognize('Save it', hasPendingAttachment: true).intent, SecretaryIntent.saveDocument);
+});
+
+test('recognizes document save request without attachment so UI can prompt', () {
+  const engine = IntentEngine();
+
+  final result = engine.recognize('Save it');
+
+  expect(result.intent, SecretaryIntent.saveDocument);
+  expect(result.response, 'Please attach or capture the document you want me to save.');
+});
+
+test('recognizes document retrieval transcript variants', () {
+  const engine = IntentEngine();
+
+  final showAadhaar = engine.recognize('Show my Aadhaar card');
+  expect(showAadhaar.intent, SecretaryIntent.findDocument);
+  expect(showAadhaar.action.payload['name'], 'Aadhaar Card');
+
+  final showAadhar = engine.recognize('Show my aadhar');
+  expect(showAadhar.intent, SecretaryIntent.findDocument);
+  expect(showAadhar.action.payload['name'], 'Aadhaar');
+
+  final passport = engine.recognize('Give me my passport');
+  expect(passport.intent, SecretaryIntent.findDocument);
+  expect(passport.action.payload['name'], 'Passport');
+});
+
+test('recognizes document share delete and list commands', () {
+  const engine = IntentEngine();
+
+  final share = engine.recognize('Share my PAN card');
+  expect(share.intent, SecretaryIntent.shareDocument);
+  expect(share.action.payload['name'], 'PAN Card');
+
+  final delete = engine.recognize('Delete my old insurance paper');
+  expect(delete.intent, SecretaryIntent.deleteDocument);
+  expect(delete.action.payload['name'], 'Insurance Paper');
+
+  expect(engine.recognize('Show all my documents').intent, SecretaryIntent.listDocuments);
+});
 }
