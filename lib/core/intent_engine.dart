@@ -16,31 +16,6 @@ class IntentEngine {
     final scheduleScope = _extractScheduleScope(normalized);
     final deletionScope = _extractDeletionScope(normalized);
 
-    final docCommand = _documentCommand(normalized, hasPendingAttachment: hasPendingAttachment);
-    if (docCommand != null) {
-      final name = _extractDocumentName(normalized, docCommand);
-      final response = switch (docCommand) {
-        SecretaryActionType.saveDocument => hasPendingAttachment ? 'I can save that document securely.' : 'Please attach or capture the document you want me to save.',
-        SecretaryActionType.findDocument => name == null ? 'Opening your important documents.' : 'Looking for $name.',
-        SecretaryActionType.openDocument => name == null ? 'Which document should I open?' : 'Opening $name.',
-        SecretaryActionType.shareDocument => name == null ? 'Which document should I share?' : 'Preparing to share $name.',
-        SecretaryActionType.deleteDocument => name == null ? 'Which document should I delete?' : 'Preparing to delete $name.',
-        SecretaryActionType.listDocuments => 'Opening your important documents.',
-        _ => 'Opening your important documents.',
-      };
-      final intent = switch (docCommand) {
-        SecretaryActionType.saveDocument => SecretaryIntent.saveDocument,
-        SecretaryActionType.findDocument => SecretaryIntent.findDocument,
-        SecretaryActionType.openDocument => SecretaryIntent.openDocument,
-        SecretaryActionType.shareDocument => SecretaryIntent.shareDocument,
-        SecretaryActionType.deleteDocument => SecretaryIntent.deleteDocument,
-        SecretaryActionType.listDocuments => SecretaryIntent.listDocuments,
-        _ => SecretaryIntent.findDocument,
-      };
-      return _result(input, normalized, intent, .86, {'name': name}, response, SecretaryAction(docCommand, {'name': name}));
-    }
-
-
     if (_isDeleteTasks(normalized, deletionScope)) {
       return _result(
         input,
@@ -53,7 +28,7 @@ class IntentEngine {
       );
     }
 
-    if (_isViewSchedule(normalized)) {
+    if (_isViewSchedule(normalized, scheduleScope)) {
       final scope = scheduleScope ?? ScheduleScope.all;
       return _result(
         input,
@@ -96,6 +71,31 @@ class IntentEngine {
       );
     }
 
+    final docCommand = _documentCommand(normalized, hasPendingAttachment: hasPendingAttachment);
+    if (docCommand != null) {
+      final name = _extractDocumentName(normalized, docCommand);
+      final response = switch (docCommand) {
+        SecretaryActionType.saveDocument => hasPendingAttachment ? 'I can save that document securely.' : 'Please attach or capture the document you want me to save.',
+        SecretaryActionType.findDocument => name == null ? 'Opening your important documents.' : 'Looking for $name.',
+        SecretaryActionType.openDocument => name == null ? 'Which document should I open?' : 'Opening $name.',
+        SecretaryActionType.shareDocument => name == null ? 'Which document should I share?' : 'Preparing to share $name.',
+        SecretaryActionType.deleteDocument => name == null ? 'Which document should I delete?' : 'Preparing to delete $name.',
+        SecretaryActionType.listDocuments => 'Opening your important documents.',
+        _ => 'Opening your important documents.',
+      };
+      final intent = switch (docCommand) {
+        SecretaryActionType.saveDocument => SecretaryIntent.saveDocument,
+        SecretaryActionType.findDocument => SecretaryIntent.findDocument,
+        SecretaryActionType.openDocument => SecretaryIntent.openDocument,
+        SecretaryActionType.shareDocument => SecretaryIntent.shareDocument,
+        SecretaryActionType.deleteDocument => SecretaryIntent.deleteDocument,
+        SecretaryActionType.listDocuments => SecretaryIntent.listDocuments,
+        _ => SecretaryIntent.findDocument,
+      };
+      return _result(input, normalized, intent, .86, {'name': name}, response, SecretaryAction(docCommand, {'name': name}));
+    }
+
+
     if (_isHelp(normalized)) {
       return _result(
         input,
@@ -118,19 +118,20 @@ class IntentEngine {
       IntentResult(intent: intent, confidence: confidence, entities: entities,
           response: response, action: action, originalText: original, normalizedText: normalized);
 
-  bool _isViewSchedule(String t) =>
-      _hasAny(t, [
-        'schedule',
-        'briefing',
-        'what do i have',
-        'tell me today',
-        'today task',
-        'today tasks',
-        "today's tasks",
-        'am i busy',
-        'pending',
-        'upcoming',
-      ]) &&
+  bool _isViewSchedule(String t, ScheduleScope? scope) =>
+      (_hasAny(t, [
+            'schedule',
+            'briefing',
+            'what do i have',
+            'tell me today',
+            'today task',
+            'today tasks',
+            "today's tasks",
+            'am i busy',
+            'pending',
+            'upcoming',
+          ]) ||
+          (scope != null && _hasAny(t, ['task', 'reminder']))) &&
       !_hasAny(t, ['set reminder', 'make reminder', 'create reminder']);
 
   bool _isOpenTasks(String t) => _hasAny(t, ['smart task', 'show reminder', 'my reminder', 'task list']) || t == 'task' || t == 'todo';

@@ -88,4 +88,31 @@ test('recognizes document share delete and list commands', () {
 
   expect(engine.recognize('Show all my documents').intent, SecretaryIntent.listDocuments);
 });
+
+test('keeps document and scoped schedule intents distinct', () {
+  const engine = IntentEngine();
+
+  final showAadhaar = engine.recognize('Show my Aadhaar card');
+  expect(showAadhaar.intent, SecretaryIntent.findDocument);
+  expect(showAadhaar.action.type, SecretaryActionType.findDocument);
+  expect(showAadhaar.action.payload['name'], 'Aadhaar Card');
+
+  final saveAadhaar = engine.recognize('Save this as my Aadhaar card');
+  expect(saveAadhaar.intent, SecretaryIntent.saveDocument);
+  expect(saveAadhaar.action.type, SecretaryActionType.saveDocument);
+  expect(saveAadhaar.action.payload['name'], 'Aadhaar Card');
+
+  final scheduleToday = engine.recognize("What's my schedule today?");
+  expect(scheduleToday.intent, SecretaryIntent.viewSchedule);
+  expect(scheduleToday.action.payload['filter'], 'today');
+
+  final todaysTasks = engine.recognize("Show today's tasks");
+  expect(todaysTasks.intent, SecretaryIntent.viewSchedule);
+  expect(todaysTasks.action.payload['filter'], 'today');
+
+  final tomorrowReminders = engine.recognize('What are my reminders tomorrow?');
+  expect(tomorrowReminders.intent, SecretaryIntent.viewSchedule);
+  expect(tomorrowReminders.action.payload['filter'], 'tomorrow');
+});
+
 }
