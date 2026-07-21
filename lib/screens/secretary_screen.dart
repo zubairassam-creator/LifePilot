@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/lifepilot_core.dart';
 import '../core/secretary_intents.dart';
 import '../models/chat_message.dart';
+import '../models/lifepilot_document.dart';
 import '../services/document_picker_service.dart';
 import '../widgets/attachment_source_sheet.dart';
 import '../widgets/pending_attachment_preview.dart';
@@ -27,14 +28,29 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
   bool _isListening = false;
   bool _isThinking = false;
   bool _isSpeaking = false;
+  bool _welcomeDelivered = false;
   PendingDocumentAttachment? _pendingAttachment;
 
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      text: "How can I help you today?",
-      sender: MessageSender.assistant,
-    ),
-  ];
+  final List<ChatMessage> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _deliverWelcome();
+    });
+  }
+
+  Future<void> _deliverWelcome() async {
+    if (_welcomeDelivered || !mounted) return;
+
+    _welcomeDelivered = true;
+
+    await _addAssistantMessageAndSpeak(
+      'I am your personal assistant. How may I help you?',
+    );
+  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -89,7 +105,6 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
     ).execute(action);
   }
 
-
   Future<void> _pickAttachment() async {
     final source = await AttachmentSourceSheet.show(context);
     if (source == null) return;
@@ -100,6 +115,10 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
       return;
     }
     if (result.attachment != null) setState(() => _pendingAttachment = result.attachment);
+  }
+
+  Future<void> _addAssistantMessageAndSpeak(String text) async {
+    await _addAssistantMessage(text, speak: true);
   }
 
   Future<void> _addAssistantMessage(String text, {bool speak = true}) async {
@@ -302,56 +321,91 @@ class _SecretaryScreenState extends State<SecretaryScreen> {
                 },
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Add document',
-                    icon: const Icon(Icons.add_circle_outline),
-                    onPressed: _pickAttachment,
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _textController,
-                      focusNode: _focusNode,
-                      textInputAction: TextInputAction.send,
-                      decoration: const InputDecoration(
-                        hintText: "Type a message...",
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (_) {
-                        setState(() {});
-                      },
-                      onSubmitted: (value) async {
-                        await processUserInput(value);
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  FloatingActionButton(
-                    mini: true,
-                    backgroundColor: !hasText && _isListening
-                        ? Colors.red
-                        : null,
-                    foregroundColor: !hasText && _isListening
-                        ? Colors.white
-                        : null,
-                    onPressed: () async {
-                      if (_textController.text.trim().isEmpty) {
-                        await _startListening();
-                      } else {
-                        await processUserInput(_textController.text.trim());
-                      }
-                    },
-                    child: Icon(hasText ? Icons.send : Icons.mic),
-                  ),
-                ],
-              ),
-            ),
           ],
+        ),
+      ),
+      bottomNavigationBar: _AssistantInputBar(
+        textController: _textController,
+        focusNode: _focusNode,
+        isListening: _isListening,
+        hasText: hasText,
+        onAttach: _pickAttachment,
+        onListen: _startListening,
+        onSubmit: processUserInput,
+        onTextChanged: () => setState(() {}),
+      ),
+    );
+  }
+}
+
+class _AssistantInputBar extends StatelessWidget {
+  const _AssistantInputBar({
+    required this.textController,
+    required this.focusNode,
+    required this.isListening,
+    required this.hasText,
+    required this.onAttach,
+    required this.onListen,
+    required this.onSubmit,
+    required this.onTextChanged,
+  });
+
+  final TextEditingController textController;
+  final FocusNode focusNode;
+  final bool isListening;
+  final bool hasText;
+  final VoidCallback onAttach;
+  final VoidCallback onListen;
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onTextChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomInset = mediaQuery.viewInsets.bottom;
+    final bottomPadding =
+        bottomInset > 0 ? bottomInset : mediaQuery.viewPadding.bottom;
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Add document',
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: onAttach,
+              ),
+              Expanded(
+                child: TextField(
+                  controller: textController,
+                  focusNode: focusNode,
+                  textInputAction: TextInputAction.send,
+                  decoration: const InputDecoration(
+                    hintText: "Type a message...",
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onTextChanged(),
+                  onSubmitted: onSubmit,
+                ),
+              ),
+              const SizedBox(width: 10),
+              FloatingActionButton(
+                mini: true,
+                backgroundColor: !hasText && isListening ? Colors.red : null,
+                foregroundColor: !hasText && isListening ? Colors.white : null,
+                onPressed: () =>
+                    hasText ? onSubmit(textController.text.trim()) : onListen(),
+                child: Icon(hasText ? Icons.send : Icons.mic),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -4,7 +4,8 @@ import '../services/document_picker_service.dart';
 class AttachmentSourceSheet extends StatelessWidget {
   const AttachmentSourceSheet({super.key});
 
-  static Future<AttachmentSource?> show(BuildContext context) => showModalBottomSheet<AttachmentSource>(
+  static Future<AttachmentSource?> show(BuildContext context) =>
+      showModalBottomSheet<AttachmentSource>(
         context: context,
         showDragHandle: true,
         builder: (context) => const AttachmentSourceSheet(),
@@ -17,9 +18,21 @@ class AttachmentSourceSheet extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('Add document', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            ListTile(leading: const Icon(Icons.photo_camera_outlined), title: const Text('Camera'), onTap: () => Navigator.pop(context, AttachmentSource.camera)),
-            ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('Photo Gallery'), onTap: () => Navigator.pop(context, AttachmentSource.gallery)),
-            ListTile(leading: const Icon(Icons.description_outlined), title: const Text('Files'), onTap: () => Navigator.pop(context, AttachmentSource.files)),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Camera'),
+              onTap: () => Navigator.pop(context, AttachmentSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Gallery'),
+              onTap: () => Navigator.pop(context, AttachmentSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Files'),
+              onTap: () => Navigator.pop(context, AttachmentSource.files),
+            ),
           ]),
         ),
       );
