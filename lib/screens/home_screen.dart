@@ -196,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _savePendingDocument(String? name) async {
     final attachment = _pendingAttachment;
     if (attachment == null) {
-      _addAssistantMessage('Please attach or capture the document you want me to save.');
+      await _addAssistantMessage('Please attach or capture the document you want me to save.');
       return;
     }
     final data = await DocumentSaveSheet.show(context, attachment, name ?? _titleFromFile(attachment.fileName));
@@ -204,30 +204,34 @@ class _HomeScreenState extends State<HomeScreen> {
     if (data.sensitive) {
       final auth = await DocumentAuthService.instance.authenticate('Authenticate to save this sensitive document');
       if (!auth.success) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(auth.message ?? 'Authentication failed.')));
+        final message = auth.message ?? 'Authentication failed.';
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        await _addAssistantMessage(message);
         return;
       }
     }
     try {
       await DocumentStorageService.instance.save(attachment: attachment, displayName: data.name, category: data.category, isSensitive: data.sensitive, description: data.description);
       setState(() => _pendingAttachment = null);
-      _addAssistantMessage('Your ${data.name} has been saved securely.');
+      await _addAssistantMessage('Your ${data.name} has been saved securely.');
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save this document securely.')));
+      const message = 'Could not save this document securely.';
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      await _addAssistantMessage(message);
     }
   }
 
   Future<void> _openDocumentCommand(String? name) async {
     if (name == null) { await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen())); return; }
     final matches = DocumentStorageService.instance.findMatches(name);
-    if (matches.isEmpty) { _addAssistantMessage('I couldn’t find a document named $name.'); return; }
+    if (matches.isEmpty) { await _addAssistantMessage(_documentNotFoundMessage(name)); return; }
     if (matches.length > 1) {
-      _addAssistantMessage('I found several matching documents. Please choose one.');
+      await _addAssistantMessage('I found several matching documents. Please choose one.');
       await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen()));
       return;
     }
     final doc = matches.single;
-    _addAssistantMessage('I found your ${doc.displayName}.');
+    await _addAssistantMessage('I found your ${doc.displayName}.');
     if (doc.isSensitive) {
       final auth = await DocumentAuthService.instance.authenticate('Authenticate to open this document');
       if (!auth.success) return;
@@ -238,27 +242,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _shareDocumentCommand(String? name) async {
     final matches = name == null ? <LifePilotDocument>[] : DocumentStorageService.instance.findMatches(name);
-    if (matches.length > 1) { _addAssistantMessage('I found several matching documents. Please choose one.'); return; }
+    if (matches.length > 1) { await _addAssistantMessage('I found several matching documents. Please choose one.'); return; }
     final doc = matches.isEmpty ? null : matches.single;
-    if (doc == null) { _addAssistantMessage(name == null ? 'Which document should I share?' : 'I couldn’t find a document named $name.'); return; }
+    if (doc == null) { await _addAssistantMessage(name == null ? 'Which document should I share?' : _documentNotFoundMessage(name)); return; }
     final auth = await DocumentAuthService.instance.authenticate('Authenticate to share this document');
     if (!auth.success) return;
-    try { await DocumentShareService.instance.share(doc); } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not share this document.'))); }
+    try {
+      await DocumentShareService.instance.share(doc);
+      await _addAssistantMessage('Your ${doc.displayName} is ready to share.');
+    } catch (_) {
+      const message = 'Could not share this document.';
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      await _addAssistantMessage(message);
+    }
   }
 
   Future<void> _deleteDocumentCommand(String? name) async {
     final matches = name == null ? <LifePilotDocument>[] : DocumentStorageService.instance.findMatches(name);
-    if (matches.length > 1) { _addAssistantMessage('I found several matching documents. Please choose one.'); return; }
+    if (matches.length > 1) { await _addAssistantMessage('I found several matching documents. Please choose one.'); return; }
     final doc = matches.isEmpty ? null : matches.single;
-    if (doc == null) { _addAssistantMessage(name == null ? 'Which document should I delete?' : 'I couldn’t find a document named $name.'); return; }
+    if (doc == null) { await _addAssistantMessage(name == null ? 'Which document should I delete?' : _documentNotFoundMessage(name)); return; }
     await Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)));
   }
 
-  void _addAssistantMessage(String text) {
+  Future<void> _addAssistantMessage(String text, {bool speak = true}) async {
     if (!mounted) return;
-    setState(() => _messages.add(ChatMessage(text: text, sender: MessageSender.assistant)));
+    setState(() {
+      _messages.add(ChatMessage(text: text, sender: MessageSender.assistant));
+      _isSpeaking = speak;
+    });
     _scrollChatToBottom();
+    if (!speak) return;
+    await VoiceService.speak(text);
+    if (!mounted) return;
+    setState(() => _isSpeaking = false);
   }
+
+  String _documentNotFoundMessage(String name) =>
+      "I couldn't find a document named $name. You can save it first if you haven't already.";
 
   String _titleFromFile(String f) {
     final base = f.replaceFirst(RegExp(r'\.[^.]+$'), '').replaceAll(RegExp(r'[_-]+'), ' ');
