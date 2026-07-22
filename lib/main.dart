@@ -6,6 +6,7 @@ import 'screens/home_screen.dart';
 import 'services/life_memory_repository.dart';
 import 'services/document_storage_service.dart';
 import 'services/notification_service.dart';
+import 'services/password_vault_service.dart';
 import 'services/sync_service.dart';
 import 'services/task_storage_service.dart';
 import 'services/voice_service.dart';
@@ -28,6 +29,7 @@ Future<void> main() async {
   await TaskStorageService.initialize();
   await LifeMemoryRepository.initialize();
   await DocumentStorageService.instance.initialize();
+  await PasswordVaultService.instance.initialize();
   await SyncService.syncPendingChanges();
 
   // Initialize Services

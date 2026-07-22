@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -24,6 +25,21 @@ class MainActivity : FlutterFragmentActivity() {
                     "cancel" -> {
                         val id = call.argument<Int>("id") ?: 0
                         cancelSpokenReminder(id)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lifepilot/secure_window")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "enable" -> {
+                        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+                        result.success(null)
+                    }
+                    "disable" -> {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                         result.success(null)
                     }
                     else -> result.notImplemented()

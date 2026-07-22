@@ -31,6 +31,16 @@ class SecretaryBrain {
           const SecretaryAction(SecretaryActionType.clarify));
     }
 
+    if (_isPasswordVaultRequest(normalized)) {
+      return result(
+        'For your security, passwords can only be accessed manually from Password Vault.',
+        SecretaryIntent.unknown,
+        .99,
+        const {},
+        const SecretaryAction(SecretaryActionType.showHelp),
+      );
+    }
+
     final sharedIntent = _intentEngine.recognize(
       input,
       hasPendingAttachment: hasPendingAttachment,
@@ -130,6 +140,9 @@ class SecretaryBrain {
   LifeMemory _memory(DateTime now, String original, String title, LifeMemoryType type, {String? person, String? subject, String? location, DateTime? eventDate, DateTime? dueDate, String? recurrence, double? amount, String? currency}) => LifeMemory(id: now.microsecondsSinceEpoch.toString(), originalStatement: original, title: title.trim(), type: type, person: person, subject: subject, location: location, eventDate: eventDate, dueDate: dueDate, recurrence: recurrence, amount: amount, currency: currency, createdAt: now, updatedAt: now);
 
   Future<void> _saveTask(String title, DateTime due, ReminderMode mode, [RepeatType repeat = RepeatType.none]) async { final now = DateTime.now(); final task = LifePilotTask(id: now.microsecondsSinceEpoch.toString(), title: title, dueDateTime: due, reminderEnabled: true, reminderMode: mode, repeatType: repeat, isAiGenerated: true, createdAt: now, updatedAt: now); await TaskStorageService.addTask(task); try { if (due.isAfter(now)) { await NotificationService.scheduleTask(task); } } catch (_) {} }
+  bool _isPasswordVaultRequest(String t) =>
+      RegExp(r'\b(password|passcode|login|credential)\b').hasMatch(t) &&
+      RegExp(r'\b(show|tell|what|copy|retrieve|get|find|reveal)\b').hasMatch(t);
   bool _isLocationRecall(String t) => t.startsWith('where is') || t.startsWith('where did i keep');
   bool _isSchedule(String t) =>
       t.contains('schedule') ||
