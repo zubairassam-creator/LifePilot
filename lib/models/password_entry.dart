@@ -6,7 +6,8 @@ enum PasswordCategory {
   government,
   education,
   shopping,
-  office,
+  work,
+  entertainment,
   personal,
   other;
 
@@ -16,15 +17,20 @@ enum PasswordCategory {
         PasswordCategory.government => 'Government',
         PasswordCategory.education => 'Education',
         PasswordCategory.shopping => 'Shopping',
-        PasswordCategory.office => 'Office',
+        PasswordCategory.work => 'Work',
+        PasswordCategory.entertainment => 'Entertainment',
         PasswordCategory.personal => 'Personal',
         PasswordCategory.other => 'Other',
       };
 
-  static PasswordCategory fromLabel(String value) => PasswordCategory.values.firstWhere(
-        (category) => category.label.toLowerCase() == value.toLowerCase(),
-        orElse: () => PasswordCategory.other,
-      );
+  static PasswordCategory fromLabel(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'office') return PasswordCategory.work;
+    return PasswordCategory.values.firstWhere(
+      (category) => category.label.toLowerCase() == normalized,
+      orElse: () => PasswordCategory.other,
+    );
+  }
 }
 
 @immutable
@@ -62,18 +68,20 @@ class PasswordEntry {
     String? notes,
     DateTime? lastModified,
     bool? favourite,
-  }) => PasswordEntry(
-        id: id,
-        serviceName: serviceName ?? this.serviceName,
-        username: username ?? this.username,
-        encryptedPassword: encryptedPassword ?? this.encryptedPassword,
-        website: website ?? this.website,
-        category: category ?? this.category,
-        notes: notes ?? this.notes,
-        dateCreated: dateCreated,
-        lastModified: lastModified ?? this.lastModified,
-        favourite: favourite ?? this.favourite,
-      );
+  }) {
+    return PasswordEntry(
+      id: id,
+      serviceName: serviceName ?? this.serviceName,
+      username: username ?? this.username,
+      encryptedPassword: encryptedPassword ?? this.encryptedPassword,
+      website: website ?? this.website,
+      category: category ?? this.category,
+      notes: notes ?? this.notes,
+      dateCreated: dateCreated,
+      lastModified: lastModified ?? this.lastModified,
+      favourite: favourite ?? this.favourite,
+    );
+  }
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -88,16 +96,18 @@ class PasswordEntry {
         'favourite': favourite,
       };
 
-  factory PasswordEntry.fromMap(Map<dynamic, dynamic> map) => PasswordEntry(
-        id: map['id'] as String,
-        serviceName: map['serviceName'] as String? ?? '',
-        username: map['username'] as String? ?? '',
-        encryptedPassword: map['encryptedPassword'] as String? ?? '',
-        website: map['website'] as String? ?? '',
-        category: PasswordCategory.fromLabel(map['category'] as String? ?? 'Other'),
-        notes: map['notes'] as String? ?? '',
-        dateCreated: DateTime.tryParse(map['dateCreated'] as String? ?? '') ?? DateTime.now(),
-        lastModified: DateTime.tryParse(map['lastModified'] as String? ?? '') ?? DateTime.now(),
-        favourite: map['favourite'] as bool? ?? false,
-      );
+  factory PasswordEntry.fromMap(Map<dynamic, dynamic> map) {
+    return PasswordEntry(
+      id: map['id'] as String? ?? '',
+      serviceName: map['serviceName'] as String? ?? '',
+      username: map['username'] as String? ?? '',
+      encryptedPassword: map['encryptedPassword'] as String? ?? '',
+      website: map['website'] as String? ?? '',
+      category: PasswordCategory.fromLabel(map['category'] as String? ?? 'Other'),
+      notes: map['notes'] as String? ?? '',
+      dateCreated: DateTime.tryParse(map['dateCreated'] as String? ?? '') ?? DateTime.now(),
+      lastModified: DateTime.tryParse(map['lastModified'] as String? ?? '') ?? DateTime.now(),
+      favourite: map['favourite'] as bool? ?? false,
+    );
+  }
 }
