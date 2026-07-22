@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/password_vault_service.dart';
@@ -12,6 +14,18 @@ class AddPasswordScreen extends StatefulWidget {
 
 class _AddPasswordScreenState extends State<AddPasswordScreen> {
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(PasswordVaultService.instance.retainScreenshotProtection());
+  }
+
+  @override
+  void dispose() {
+    unawaited(PasswordVaultService.instance.releaseScreenshotProtection());
+    super.dispose();
+  }
 
   Future<void> _save(PasswordFormValue value) async {
     setState(() => _saving = true);

@@ -20,6 +20,7 @@ class PasswordVaultScreen extends StatefulWidget {
 class _PasswordVaultScreenState extends State<PasswordVaultScreen> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   final Map<String, String> _revealedPasswords = <String, String>{};
+  final Map<String, Timer> _revealTimers = <String, Timer>{};
   bool _locked = true;
   bool _searching = false;
   String? _lockMessage;
@@ -37,6 +38,7 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen> with WidgetsB
   @override
   void dispose() {
     _autoLockTimer?.cancel();
+    _cancelRevealTimers();
     _searchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(PasswordVaultService.instance.setScreenshotProtection(false));
@@ -59,8 +61,32 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen> with WidgetsB
     if (!mounted) return;
     setState(() {
       _locked = true;
-      _revealedPasswords.clear();
+      _hideAllRevealedPasswords();
     });
+  }
+
+  void _hideAllRevealedPasswords() {
+    _cancelRevealTimers();
+    _revealedPasswords.clear();
+  }
+
+  void _cancelRevealTimers() {
+    for (final timer in _revealTimers.values) {
+      timer.cancel();
+    }
+    _revealTimers.clear();
+  }
+
+  void _hidePassword(String entryId) {
+    _revealTimers.remove(entryId)?.cancel();
+    if (mounted && _revealedPasswords.containsKey(entryId)) {
+      setState(() => _revealedPasswords.remove(entryId));
+    }
+  }
+
+  void _schedulePasswordHide(String entryId) {
+    _revealTimers.remove(entryId)?.cancel();
+    _revealTimers[entryId] = Timer(const Duration(seconds: 15), () => _hidePassword(entryId));
   }
 
   Future<void> _unlock() async {
@@ -84,12 +110,14 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen> with WidgetsB
 
   Future<void> _togglePassword(PasswordEntry entry) async {
     if (_revealedPasswords.containsKey(entry.id)) {
-      setState(() => _revealedPasswords.remove(entry.id));
+      _hidePassword(entry.id);
       return;
     }
     if (!await _reauthenticate('Reveal password for ${entry.serviceName}')) return;
     final password = await PasswordVaultService.instance.decryptPassword(entry);
-    if (mounted) setState(() => _revealedPasswords[entry.id] = password);
+    if (!mounted) return;
+    setState(() => _revealedPasswords[entry.id] = password);
+    _schedulePasswordHide(entry.id);
   }
 
   Future<void> _copyPassword(PasswordEntry entry) async {
@@ -116,7 +144,7 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen> with WidgetsB
     );
     if (confirmed != true) return;
     await PasswordVaultService.instance.delete(entry.id);
-    if (mounted) setState(() => _revealedPasswords.remove(entry.id));
+    if (mounted) _hidePassword(entry.id);
   }
 
   Future<void> _openAdd() async {
@@ -128,7 +156,7 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen> with WidgetsB
   Future<void> _openEdit(PasswordEntry entry) async {
     _touch();
     final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => EditPasswordScreen(entry: entry)));
-    if (changed == true && mounted) setState(() => _revealedPasswords.remove(entry.id));
+    if (changed == true && mounted) _hidePassword(entry.id);
   }
 
   @override
