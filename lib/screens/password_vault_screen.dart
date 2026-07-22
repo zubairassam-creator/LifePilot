@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../models/password_entry.dart';
 import '../services/password_vault_service.dart';
 import '../services/vault_authentication_service.dart';
+import '../services/vault_screen_security_service.dart';
 
 class PasswordVaultScreen extends StatefulWidget {
   const PasswordVaultScreen({super.key});
@@ -22,26 +23,44 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen>
   bool _loading = true;
   bool _unlocked = false;
   final Set<String> _revealed = <String>{};
+  final Map<String, Timer> _revealTimers = <String, Timer>{};
+  bool _authenticationInProgress = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    VaultScreenSecurityService.enable();
     _unlockAndLoad();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    for (final timer in _revealTimers.values) {
+      timer.cancel();
+    }
+    _revealTimers.clear();
+    VaultScreenSecurityService.disable();
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Android temporarily marks the Flutter activity inactive while the
+    // system biometric prompt is visible. Do not lock the vault during that
+    // expected transition, otherwise a successful reveal is immediately lost.
+    if (_authenticationInProgress) return;
+
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
+      if (!mounted) return;
+      for (final timer in _revealTimers.values) {
+        timer.cancel();
+      }
+      _revealTimers.clear();
       setState(() {
         _unlocked = false;
         _revealed.clear();
@@ -53,7 +72,7 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen>
 
   Future<void> _unlockAndLoad() async {
     if (mounted) setState(() => _loading = true);
-    final ok = await VaultAuthenticationService.instance.authenticate();
+    final ok = await _authenticate('Authenticate to access Password Vault');
     if (!mounted) return;
     if (!ok) {
       setState(() {
@@ -72,8 +91,16 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen>
     });
   }
 
-  Future<bool> _reauthenticate(String reason) {
-    return VaultAuthenticationService.instance.authenticate(reason: reason);
+  Future<bool> _authenticate(String reason) async {
+    if (_authenticationInProgress) return false;
+    _authenticationInProgress = true;
+    try {
+      return await VaultAuthenticationService.instance.authenticate(
+        reason: reason,
+      );
+    } finally {
+      _authenticationInProgress = false;
+    }
   }
 
   Future<void> _reload() async {
@@ -120,8 +147,17 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen>
       setState(() => _revealed.remove(entry.id));
       return;
     }
-    final ok = await _reauthenticate('Authenticate to reveal this password');
-    if (ok && mounted) setState(() => _revealed.add(entry.id));
+    final ok = await _authenticate('Authenticate to reveal this password');
+    if (!ok || !mounted) return;
+
+    _revealTimers.remove(entry.id)?.cancel();
+    setState(() => _revealed.add(entry.id));
+    _revealTimers[entry.id] = Timer(const Duration(seconds: 30), () {
+      _revealTimers.remove(entry.id);
+      if (mounted && _revealed.contains(entry.id)) {
+        setState(() => _revealed.remove(entry.id));
+      }
+    });
   }
 
   Future<void> _copyUsername(PasswordEntry entry) async {
@@ -133,7 +169,7 @@ class _PasswordVaultScreenState extends State<PasswordVaultScreen>
   }
 
   Future<void> _copyPassword(PasswordEntry entry) async {
-    final ok = await _reauthenticate('Authenticate to copy this password');
+    final ok = await _authenticate('Authenticate to copy this password');
     if (!ok) return;
     await Clipboard.setData(ClipboardData(text: entry.password));
     if (!mounted) return;
@@ -461,22 +497,24 @@ class _PasswordEntryDialogState extends State<_PasswordEntryDialog> {
                       v == null || v.isEmpty ? 'Password is required' : null,
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Text('Generate:'),
-                    const SizedBox(width: 8),
-                    for (final length in const [12, 16, 20, 24, 32])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: ActionChip(
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text('Generate:'),
+                      for (final length in const [12, 16, 20, 24, 32])
+                        ActionChip(
                           label: Text('$length'),
                           onPressed: () {
                             _password.text = _generatePassword(length);
                             setState(() => _obscure = false);
                           },
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
                 TextFormField(
                   controller: _website,
