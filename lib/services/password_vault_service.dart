@@ -18,6 +18,7 @@ class PasswordVaultService {
   final Uuid _uuid = const Uuid();
   final StreamController<List<PasswordEntry>> _entriesController =
       StreamController<List<PasswordEntry>>.broadcast();
+  int _screenshotProtectionRetainCount = 0;
   Box<Map>? _box;
 
   Stream<List<PasswordEntry>> get entriesStream => _entriesController.stream;
@@ -126,7 +127,26 @@ class PasswordVaultService {
     }
   }
 
-  Future<void> setScreenshotProtection(bool enabled) async {
+  Future<void> retainScreenshotProtection() async {
+    _screenshotProtectionRetainCount++;
+    if (_screenshotProtectionRetainCount == 1) {
+      await _setScreenshotProtection(true);
+    }
+  }
+
+  Future<void> releaseScreenshotProtection() async {
+    if (_screenshotProtectionRetainCount == 0) return;
+    _screenshotProtectionRetainCount--;
+    if (_screenshotProtectionRetainCount == 0) {
+      await _setScreenshotProtection(false);
+    }
+  }
+
+  Future<void> setScreenshotProtection(bool enabled) {
+    return enabled ? retainScreenshotProtection() : releaseScreenshotProtection();
+  }
+
+  Future<void> _setScreenshotProtection(bool enabled) async {
     try {
       await _secureWindow.invokeMethod<void>(enabled ? 'enable' : 'disable');
     } on PlatformException {

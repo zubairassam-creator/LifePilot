@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+
+import '../services/password_vault_service.dart';
 
 class PasswordGeneratorDialog extends StatefulWidget {
   const PasswordGeneratorDialog({super.key});
@@ -23,12 +26,6 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
   bool _symbolCharacters = true;
   late String _preview;
 
-  @override
-  void initState() {
-    super.initState();
-    _preview = _generatePassword();
-  }
-
   String _generatePassword() {
     final requiredPools = <String>[
       if (_uppercase) _upper,
@@ -49,12 +46,26 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
     return characters.join();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    unawaited(PasswordVaultService.instance.retainScreenshotProtection());
+    _preview = _generatePassword();
+  }
+
+  @override
+  void dispose() {
+    unawaited(PasswordVaultService.instance.releaseScreenshotProtection());
+    super.dispose();
+  }
+
   void _regenerate() => setState(() => _preview = _generatePassword());
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Generate secure password'),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -80,8 +91,27 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _regenerate, child: const Text('Regenerate')),
-        FilledButton(onPressed: () => Navigator.pop(context, _preview), child: const Text('Use password')),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stackButtons = constraints.maxWidth < 320;
+            return Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                SizedBox(
+                  width: stackButtons ? double.infinity : null,
+                  child: TextButton(onPressed: _regenerate, child: const Text('Regenerate')),
+                ),
+                SizedBox(
+                  width: stackButtons ? double.infinity : null,
+                  child: FilledButton(onPressed: () => Navigator.pop(context, _preview), child: const Text('Use password')),
+                ),
+              ],
+            );
+          },
+        ),
       ],
     );
   }

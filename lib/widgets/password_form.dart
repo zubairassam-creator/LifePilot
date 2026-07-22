@@ -102,7 +102,22 @@ class _PasswordFormState extends State<PasswordForm> {
           TextFormField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username or email', prefixIcon: Icon(Icons.person)), textInputAction: TextInputAction.next),
           const SizedBox(height: 12),
           TextFormField(controller: _passwordController, obscureText: _hidden, decoration: InputDecoration(labelText: _editing ? 'New password (leave blank to keep current)' : 'Password', prefixIcon: const Icon(Icons.key), suffixIcon: IconButton(icon: Icon(_hidden ? Icons.visibility : Icons.visibility_off), onPressed: () => setState(() => _hidden = !_hidden))), validator: (value) => !_editing && (value == null || value.isEmpty) ? 'Password is required' : null),
-          Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: _generate, icon: const Icon(Icons.auto_fix_high), label: const Text('Generate strong password'))),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final fullWidthButton = constraints.maxWidth < 320;
+              return Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  width: fullWidthButton ? double.infinity : null,
+                  child: TextButton.icon(
+                    onPressed: _generate,
+                    icon: const Icon(Icons.auto_fix_high),
+                    label: const Text('Generate strong password', overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              );
+            },
+          ),
           TextFormField(controller: _websiteController, decoration: const InputDecoration(labelText: 'Website or app URL', prefixIcon: Icon(Icons.link)), keyboardType: TextInputType.url),
           const SizedBox(height: 12),
           DropdownButtonFormField<PasswordCategory>(value: _category, decoration: const InputDecoration(labelText: 'Category', prefixIcon: Icon(Icons.category)), items: PasswordCategory.values.map((category) => DropdownMenuItem(value: category, child: Text(category.label))).toList(), onChanged: (value) => setState(() => _category = value ?? PasswordCategory.other)),
