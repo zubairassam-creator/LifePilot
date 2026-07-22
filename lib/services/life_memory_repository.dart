@@ -57,7 +57,10 @@ class LifeMemoryRepository {
   }
 
   static List<LifeMemory> search(String query) {
-    final tokens = query.toLowerCase().split(RegExp(r'\W+')).where((t) => t.length > 2);
+    final tokens = query
+        .toLowerCase()
+        .split(RegExp(r'\W+'))
+        .where((t) => t.length > 2);
     return getAll().where((memory) {
       final haystack = [
         memory.title,
@@ -71,7 +74,7 @@ class LifeMemoryRepository {
     }).toList();
   }
 
-  static List<LifeMemory> pendingSync() => getAll(includeDeleted: true)
-      .where((m) => m.syncStatus != SyncStatus.synced)
-      .toList();
+  static List<LifeMemory> pendingSync() => getAll(
+    includeDeleted: true,
+  ).where((m) => m.syncStatus != SyncStatus.synced).toList();
 }

@@ -220,7 +220,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update reminder notification.')),
+        const SnackBar(
+          content: Text('Could not update reminder notification.'),
+        ),
       );
     }
   }
@@ -312,7 +314,6 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
     );
   }
 
-
   Future<void> deleteTasksByScope(ReminderFilter scope) async {
     final candidates = tasks.where((task) {
       switch (scope) {
@@ -372,7 +373,9 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           title: Text('Delete $scope tasks?'),
-          content: Text('This will delete $count task(s) and cancel their scheduled notifications. Other Life Memory records will be preserved.'),
+          content: Text(
+            'This will delete $count task(s) and cancel their scheduled notifications. Other Life Memory records will be preserved.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
@@ -624,7 +627,10 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
                 value: 'delete_completed',
                 child: Text('Delete completed'),
               ),
-              PopupMenuItem(value: 'delete_missed', child: Text('Delete missed')),
+              PopupMenuItem(
+                value: 'delete_missed',
+                child: Text('Delete missed'),
+              ),
               PopupMenuItem(value: 'delete_all', child: Text('Delete all')),
               PopupMenuItem(
                 value: 'select_multiple',
@@ -635,7 +641,11 @@ class _SmartRemindersScreenState extends State<SmartRemindersScreen> {
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
               child: Row(
-                children: [Icon(Icons.tune), SizedBox(width: 4), Text('Manage')],
+                children: [
+                  Icon(Icons.tune),
+                  SizedBox(width: 4),
+                  Text('Manage'),
+                ],
               ),
             ),
           ),

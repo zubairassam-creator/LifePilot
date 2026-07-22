@@ -2,9 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../services/voice_service.dart';
 import 'important_documents_screen.dart';
 import 'my_tasks_screen.dart';
+import 'password_vault_screen.dart';
 import 'secretary_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -29,10 +29,7 @@ class DashboardScreen extends StatelessWidget {
           );
         },
       ),
-      const _DashboardModule(
-        icon: Icons.note_alt,
-        title: 'Memory Notes',
-      ),
+      const _DashboardModule(icon: Icons.note_alt, title: 'Memory Notes'),
       _DashboardModule(
         icon: Icons.folder,
         title: 'Important Documents',
@@ -45,28 +42,26 @@ class DashboardScreen extends StatelessWidget {
           );
         },
       ),
-      const _DashboardModule(
-        icon: Icons.contacts,
-        title: 'Contacts',
-      ),
+      const _DashboardModule(icon: Icons.contacts, title: 'Contacts'),
       _DashboardModule(
         icon: Icons.auto_awesome,
         title: 'AI Assistant',
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const SecretaryScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const SecretaryScreen()),
           );
         },
       ),
       _DashboardModule(
-        icon: Icons.record_voice_over,
-        title: 'Test Voice',
-        onTap: () async {
-          await VoiceService.speak(
-            'LifePilot voice reminder test is working',
+        icon: Icons.lock,
+        title: 'Password Vault',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PasswordVaultScreen(),
+            ),
           );
         },
       ),
@@ -116,11 +111,7 @@ class _DashboardModule {
   final String title;
   final VoidCallback? onTap;
 
-  const _DashboardModule({
-    required this.icon,
-    required this.title,
-    this.onTap,
-  });
+  const _DashboardModule({required this.icon, required this.title, this.onTap});
 }
 
 class _DashboardCard extends StatelessWidget {
@@ -128,11 +119,7 @@ class _DashboardCard extends StatelessWidget {
   final String title;
   final VoidCallback? onTap;
 
-  const _DashboardCard({
-    required this.icon,
-    required this.title,
-    this.onTap,
-  });
+  const _DashboardCard({required this.icon, required this.title, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -142,9 +129,7 @@ class _DashboardCard extends StatelessWidget {
       elevation: 1.5,
       shadowColor: colorScheme.shadow.withValues(alpha: 0.12),
       surfaceTintColor: colorScheme.surfaceTint.withValues(alpha: 0.08),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -162,11 +147,7 @@ class _DashboardCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: colorScheme.primary.withValues(alpha: 0.10),
                 ),
-                child: Icon(
-                  icon,
-                  size: 30,
-                  color: colorScheme.primary,
-                ),
+                child: Icon(icon, size: 30, color: colorScheme.primary),
               ),
               const SizedBox(height: 14),
               Flexible(
@@ -176,10 +157,10 @@ class _DashboardCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w700,
-                        height: 1.15,
-                      ),
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
                 ),
               ),
             ],

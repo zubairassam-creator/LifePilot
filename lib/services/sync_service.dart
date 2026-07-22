@@ -35,7 +35,8 @@ class SyncService {
     });
   }
 
-  static List<Map<dynamic, dynamic>> pendingChanges() => _outbox.values.toList();
+  static List<Map<dynamic, dynamic>> pendingChanges() =>
+      _outbox.values.toList();
 
   static Future<void> syncPendingChanges() async {
     // Existing cloud backend integration can drain this outbox here. Keeping the

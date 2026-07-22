@@ -54,7 +54,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<ChatMessage> _messages = [
     ChatMessage(
-      text: "Good day. I’m your Personal Secretary. Tell me what to remember, ask about your schedule, or create a task.",
+      text:
+          "Good day. I’m your Personal Secretary. Tell me what to remember, ask about your schedule, or create a task.",
       sender: MessageSender.assistant,
     ),
   ];
@@ -84,13 +85,19 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _scrollChatToBottom();
 
-    final response = await LifePilotCore.instance.process(trimmedText);
+    final response = await LifePilotCore.instance.process(
+      trimmedText,
+      hasPendingAttachment: _pendingAttachment != null,
+    );
     if (!mounted) return;
 
-    final opensBriefing = response.action.type == SecretaryActionType.showBriefing;
+    final opensBriefing =
+        response.action.type == SecretaryActionType.showBriefing;
     setState(() {
       _isThinking = false;
-      _messages.add(ChatMessage(text: response.response, sender: MessageSender.assistant));
+      _messages.add(
+        ChatMessage(text: response.response, sender: MessageSender.assistant),
+      );
       _isSpeaking = !opensBriefing;
     });
     _scrollChatToBottom();
@@ -118,7 +125,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final filter = _taskFilter(action.payload['filter'] as String?);
         await Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => SmartRemindersScreen(initialFilter: filter)),
+          MaterialPageRoute(
+            builder: (context) => SmartRemindersScreen(initialFilter: filter),
+          ),
         );
         return;
       case SecretaryActionType.showBriefing:
@@ -147,7 +156,10 @@ class _HomeScreenState extends State<HomeScreen> {
         await _deleteDocumentCommand(action.payload['name'] as String?);
         return;
       case SecretaryActionType.listDocuments:
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen()));
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen()),
+        );
         return;
       case SecretaryActionType.showHelp:
       case SecretaryActionType.clarify:
@@ -160,7 +172,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final tasks = TaskStorageService.getAllTasks();
     final now = DateTime.now();
     final deletable = tasks.where((task) {
-      final missed = task.status != TaskStatus.completed && task.dueDateTime != null && task.dueDateTime!.isBefore(now);
+      final missed =
+          task.status != TaskStatus.completed &&
+          task.dueDateTime != null &&
+          task.dueDateTime!.isBefore(now);
       switch (scope) {
         case 'completed':
           return task.status == TaskStatus.completed;
@@ -177,78 +192,173 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
   Future<void> _pickAttachment() async {
     final source = await AttachmentSourceSheet.show(context);
     if (source == null) return;
     final result = await DocumentPickerService.instance.pick(source);
     if (!mounted) return;
     if (result.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.error!)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.error!)));
       return;
     }
-    if (result.attachment != null) setState(() => _pendingAttachment = result.attachment);
+    if (result.attachment != null)
+      setState(() => _pendingAttachment = result.attachment);
   }
 
   Future<void> _savePendingDocument(String? name) async {
     final attachment = _pendingAttachment;
     if (attachment == null) {
-      _addAssistantMessage('Please attach or capture the document you want me to save.');
+      await _addAssistantMessageAndSpeak(
+        'Please attach or capture the document you want me to save.',
+      );
       return;
     }
-    final data = await DocumentSaveSheet.show(context, attachment, name ?? _titleFromFile(attachment.fileName));
+    final data = await DocumentSaveSheet.show(
+      context,
+      attachment,
+      name ?? _titleFromFile(attachment.fileName),
+    );
     if (data == null) return;
     if (data.sensitive) {
-      final auth = await DocumentAuthService.instance.authenticate('Authenticate to save this sensitive document');
+      final auth = await DocumentAuthService.instance.authenticate(
+        'Authenticate to save this sensitive document',
+      );
       if (!auth.success) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(auth.message ?? 'Authentication failed.')));
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(auth.message ?? 'Authentication failed.')),
+          );
         return;
       }
     }
     try {
-      await DocumentStorageService.instance.save(attachment: attachment, displayName: data.name, category: data.category, isSensitive: data.sensitive, description: data.description);
+      await DocumentStorageService.instance.save(
+        attachment: attachment,
+        displayName: data.name,
+        category: data.category,
+        isSensitive: data.sensitive,
+        description: data.description,
+      );
       setState(() => _pendingAttachment = null);
-      _addAssistantMessage('Saved ${data.name} securely in Important Documents.');
+      await _addAssistantMessageAndSpeak(
+        'Saved ${data.name} securely in Important Documents.',
+      );
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save this document securely.')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save this document securely.'),
+          ),
+        );
     }
   }
 
   Future<void> _openDocumentCommand(String? name) async {
-    if (name == null) { await Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen())); return; }
+    if (name == null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ImportantDocumentsScreen()),
+      );
+      return;
+    }
     final doc = DocumentStorageService.instance.findBest(name);
-    if (doc == null) { _addAssistantMessage('I couldn’t find a document named $name.'); return; }
+    if (doc == null) {
+      await _addAssistantMessageAndSpeak(
+        'I couldn’t find a document named $name.',
+      );
+      return;
+    }
     if (doc.isSensitive) {
-      final auth = await DocumentAuthService.instance.authenticate('Authenticate to open this document');
+      final auth = await DocumentAuthService.instance.authenticate(
+        'Authenticate to open this document',
+      );
       if (!auth.success) return;
     }
     if (!mounted) return;
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)));
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)),
+    );
   }
 
   Future<void> _shareDocumentCommand(String? name) async {
-    final doc = name == null ? null : DocumentStorageService.instance.findBest(name);
-    if (doc == null) { _addAssistantMessage(name == null ? 'Which document should I share?' : 'I couldn’t find a document named $name.'); return; }
-    final auth = await DocumentAuthService.instance.authenticate('Authenticate to share this document');
+    final doc = name == null
+        ? null
+        : DocumentStorageService.instance.findBest(name);
+    if (doc == null) {
+      await _addAssistantMessageAndSpeak(
+        name == null
+            ? 'Which document should I share?'
+            : 'I couldn’t find a document named $name.',
+      );
+      return;
+    }
+    final auth = await DocumentAuthService.instance.authenticate(
+      'Authenticate to share this document',
+    );
     if (!auth.success) return;
-    try { await DocumentShareService.instance.share(doc); } catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not share this document.'))); }
+    try {
+      await DocumentShareService.instance.share(doc);
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not share this document.')),
+        );
+    }
   }
 
   Future<void> _deleteDocumentCommand(String? name) async {
-    final doc = name == null ? null : DocumentStorageService.instance.findBest(name);
-    if (doc == null) { _addAssistantMessage(name == null ? 'Which document should I delete?' : 'I couldn’t find a document named $name.'); return; }
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)));
+    final doc = name == null
+        ? null
+        : DocumentStorageService.instance.findBest(name);
+    if (doc == null) {
+      await _addAssistantMessageAndSpeak(
+        name == null
+            ? 'Which document should I delete?'
+            : 'I couldn’t find a document named $name.',
+      );
+      return;
+    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: doc)),
+    );
   }
 
   void _addAssistantMessage(String text) {
     if (!mounted) return;
-    setState(() => _messages.add(ChatMessage(text: text, sender: MessageSender.assistant)));
+    setState(
+      () => _messages.add(
+        ChatMessage(text: text, sender: MessageSender.assistant),
+      ),
+    );
     _scrollChatToBottom();
   }
 
+  Future<void> _addAssistantMessageAndSpeak(String text) async {
+    _addAssistantMessage(text);
+    if (!mounted) return;
+    setState(() => _isSpeaking = true);
+    try {
+      await VoiceService.speak(text);
+    } finally {
+      if (mounted) {
+        setState(() => _isSpeaking = false);
+      }
+    }
+  }
+
   String _titleFromFile(String f) {
-    final base = f.replaceFirst(RegExp(r'\.[^.]+$'), '').replaceAll(RegExp(r'[_-]+'), ' ');
-    return base.split(' ').where((w) => w.isNotEmpty).map((w) => '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+    final base = f
+        .replaceFirst(RegExp(r'\.[^.]+$'), '')
+        .replaceAll(RegExp(r'[_-]+'), ' ');
+    return base
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
   }
 
   ReminderFilter _taskFilter(String? value) {
@@ -287,14 +397,17 @@ class _HomeScreenState extends State<HomeScreen> {
         final normalizedStatus = status.toLowerCase();
         if (normalizedStatus == 'listening') {
           _setListeningState(true);
-        } else if (normalizedStatus == 'notlistening' || normalizedStatus == 'done') {
+        } else if (normalizedStatus == 'notlistening' ||
+            normalizedStatus == 'done') {
           _setListeningState(false);
         }
       },
       onError: (error) {
         _setListeningState(false);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.errorMsg)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.errorMsg)));
       },
     );
 
@@ -360,7 +473,12 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Dashboard',
             icon: const Icon(Icons.dashboard_outlined),
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DashboardScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -424,7 +542,11 @@ class _SecretaryPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Your Personal Secretary', textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text(
+              'Your Personal Secretary',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             Center(
               child: InkResponse(
@@ -437,14 +559,32 @@ class _SecretaryPanel extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isListening ? Colors.red : Colors.indigo,
-                    boxShadow: [BoxShadow(color: (isListening ? Colors.red : Colors.indigo).withValues(alpha: 0.35), blurRadius: 18, spreadRadius: 3)],
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isListening ? Colors.red : Colors.indigo)
+                            .withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        spreadRadius: 3,
+                      ),
+                    ],
                   ),
-                  child: Icon(isListening ? Icons.mic : Icons.mic_none, color: Colors.white, size: 56),
+                  child: Icon(
+                    isListening ? Icons.mic : Icons.mic_none,
+                    color: Colors.white,
+                    size: 56,
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 8),
-            Text(statusText, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
+            Text(
+              statusText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -476,12 +616,17 @@ class _ConversationList extends StatelessWidget {
           child: Container(
             margin: const EdgeInsets.symmetric(vertical: 5),
             padding: const EdgeInsets.all(12),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.72,
+            ),
             decoration: BoxDecoration(
               color: isUser ? Colors.indigo : Colors.grey.shade200,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Text(message.text, style: TextStyle(color: isUser ? Colors.white : Colors.black87)),
+            child: Text(
+              message.text,
+              style: TextStyle(color: isUser ? Colors.white : Colors.black87),
+            ),
           ),
         );
       },
@@ -515,7 +660,9 @@ class _SecretaryInputBar extends StatelessWidget {
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SafeArea(
         top: false,
         child: Container(
@@ -547,7 +694,10 @@ class _SecretaryInputBar extends StatelessWidget {
                     isDense: true,
                     filled: true,
                     fillColor: Colors.grey.shade100,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(28),
                       borderSide: BorderSide.none,
@@ -563,10 +713,16 @@ class _SecretaryInputBar extends StatelessWidget {
                   minimumSize: const Size(52, 52),
                   shape: const CircleBorder(),
                   padding: EdgeInsets.zero,
-                  backgroundColor: hasText ? Colors.indigo : (isListening ? Colors.red : Colors.indigo),
+                  backgroundColor: hasText
+                      ? Colors.indigo
+                      : (isListening ? Colors.red : Colors.indigo),
                 ),
-                onPressed: () => hasText ? onSubmit(textController.text) : onListen(),
-                child: Icon(hasText ? Icons.send : Icons.mic, color: Colors.white),
+                onPressed: () =>
+                    hasText ? onSubmit(textController.text) : onListen(),
+                child: Icon(
+                  hasText ? Icons.send : Icons.mic,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),

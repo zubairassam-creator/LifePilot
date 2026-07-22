@@ -12,8 +12,9 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  static const MethodChannel _spokenChannel =
-      MethodChannel('lifepilot/spoken_reminders');
+  static const MethodChannel _spokenChannel = MethodChannel(
+    'lifepilot/spoken_reminders',
+  );
 
   static const String channelId = 'lifepilot_reminders';
   static const String channelName = 'LifePilot Reminders';
@@ -70,7 +71,6 @@ class NotificationService {
     await androidPlugin?.createNotificationChannel(channel);
   }
 
-
   static int notificationIdForTask(LifePilotTask task) {
     final parsedId = int.tryParse(task.id);
 
@@ -101,13 +101,14 @@ class NotificationService {
       throw Exception('Reminder time must be in the future.');
     }
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      channelId,
-      channelName,
-      channelDescription: channelDescription,
-      importance: Importance.high,
-      priority: Priority.high,
-    );
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          channelId,
+          channelName,
+          channelDescription: channelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+        );
 
     const NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,

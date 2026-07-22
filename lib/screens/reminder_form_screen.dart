@@ -7,7 +7,6 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../models/lifepilot_task.dart';
 
-
 enum ReminderModeOption { normal, speak, repeatSpeak, silent }
 
 class ReminderFormScreen extends StatefulWidget {
@@ -39,7 +38,6 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
   ReminderModeOption selectedNotificationMode = ReminderModeOption.normal;
 
   bool isListening = false;
-
 
   String _priorityName(TaskPriority priority) {
     switch (priority) {

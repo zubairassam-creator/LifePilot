@@ -30,9 +30,15 @@ class DocumentEncryptionService {
     return dir;
   }
 
-  Future<String> encryptFile({required File source, required String documentId}) async {
+  Future<String> encryptFile({
+    required File source,
+    required String documentId,
+  }) async {
     final clearBytes = await source.readAsBytes();
-    final secretBox = await _cipher.encrypt(clearBytes, secretKey: await _key());
+    final secretBox = await _cipher.encrypt(
+      clearBytes,
+      secretKey: await _key(),
+    );
     final payload = <int>[
       secretBox.nonce.length,
       ...secretBox.nonce,

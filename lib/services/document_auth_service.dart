@@ -14,14 +14,27 @@ class DocumentAuthService {
   Future<DocumentAuthResult> authenticate(String reason) async {
     try {
       final supported = await _auth.isDeviceSupported();
-      if (!supported) return const DocumentAuthResult(false, 'Device security is not available on this phone.');
+      if (!supported)
+        return const DocumentAuthResult(
+          false,
+          'Device security is not available on this phone.',
+        );
       final ok = await _auth.authenticate(
         localizedReason: reason,
-        options: const AuthenticationOptions(biometricOnly: false, stickyAuth: true),
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
       );
-      return DocumentAuthResult(ok, ok ? null : 'Authentication was cancelled or failed.');
+      return DocumentAuthResult(
+        ok,
+        ok ? null : 'Authentication was cancelled or failed.',
+      );
     } catch (_) {
-      return const DocumentAuthResult(false, 'Could not verify your identity. Check your device security settings.');
+      return const DocumentAuthResult(
+        false,
+        'Could not verify your identity. Check your device security settings.',
+      );
     }
   }
 }

@@ -9,9 +9,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('LifePilot AI'), findsOneWidget);
-    expect(
-      find.text('Here is what needs attention now.'),
-      findsOneWidget,
-    );
+    expect(find.text('Here is what needs attention now.'), findsOneWidget);
   });
 }

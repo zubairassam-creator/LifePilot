@@ -8,10 +8,169 @@ import '../widgets/document_card.dart';
 import '../widgets/document_save_sheet.dart';
 import 'document_details_screen.dart';
 
-class ImportantDocumentsScreen extends StatefulWidget { const ImportantDocumentsScreen({super.key}); @override State<ImportantDocumentsScreen> createState()=>_ImportantDocumentsScreenState(); }
-class _ImportantDocumentsScreenState extends State<ImportantDocumentsScreen>{ final _search=TextEditingController(); List<LifePilotDocument> _docs=[]; bool _searching=false; @override void initState(){super.initState();_refresh();} @override void dispose(){_search.dispose();super.dispose();}
-void _refresh(){setState(()=>_docs=DocumentStorageService.instance.search(_search.text));}
-Future<void> _add() async { final source=await AttachmentSourceSheet.show(context); if(source==null)return; final picked=await DocumentPickerService.instance.pick(source); if(picked.error!=null&&mounted){ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(picked.error!)));return;} final a=picked.attachment; if(a==null)return; if(!mounted)return; final data=await DocumentSaveSheet.show(context,a,_titleFromFile(a.fileName)); if(data==null)return; if(data.sensitive){final auth=await DocumentAuthService.instance.authenticate('Authenticate to save this sensitive document'); if(!auth.success){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(auth.message??'Authentication failed.')));return;}} try{await DocumentStorageService.instance.save(attachment:a,displayName:data.name,category:data.category,isSensitive:data.sensitive,description:data.description); _refresh();}catch(_){if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Could not save this document securely.')));} }
-Future<void> _open(LifePilotDocument d) async { if(d.isSensitive){final a=await DocumentAuthService.instance.authenticate('Authenticate to view this document'); if(!a.success){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(a.message??'Authentication failed.')));return;}} if(!mounted)return; final changed=await Navigator.push(context, MaterialPageRoute(builder:(_)=>DocumentDetailsScreen(document:d))); if(changed==true)_refresh(); }
-String _titleFromFile(String f){final base=f.replaceFirst(RegExp(r'\.[^.]+$'),'').replaceAll(RegExp(r'[_-]+'),' '); return base.split(' ').where((w)=>w.isNotEmpty).map((w)=>'${w[0].toUpperCase()}${w.substring(1)}').join(' ');} 
-@override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:_searching?TextField(controller:_search,autofocus:true,decoration:const InputDecoration(hintText:'Search documents'),onChanged:(_)=>_refresh()):const Text('Important Documents'),actions:[IconButton(icon:Icon(_searching?Icons.close:Icons.search),onPressed:()=>setState(()=>_searching=!_searching)),IconButton(icon:const Icon(Icons.add),onPressed:_add)]),body:_docs.isEmpty?Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.folder_outlined,size:72),const SizedBox(height:16),Text('No important documents saved',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:8),const Text('Store your Aadhaar, PAN card, certificates,\nmedical records and other important files securely.',textAlign:TextAlign.center),const SizedBox(height:16),FilledButton.icon(onPressed:_add,icon:const Icon(Icons.add),label:const Text('Add Document'))]))):ListView.builder(padding:const EdgeInsets.all(12),itemCount:_docs.length,itemBuilder:(_,i)=>DocumentCard(document:_docs[i],onTap:()=>_open(_docs[i]))));}
+class ImportantDocumentsScreen extends StatefulWidget {
+  const ImportantDocumentsScreen({super.key});
+  @override
+  State<ImportantDocumentsScreen> createState() =>
+      _ImportantDocumentsScreenState();
+}
+
+class _ImportantDocumentsScreenState extends State<ImportantDocumentsScreen> {
+  final _search = TextEditingController();
+  List<LifePilotDocument> _docs = [];
+  bool _searching = false;
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _refresh() {
+    setState(
+      () => _docs = DocumentStorageService.instance.search(_search.text),
+    );
+  }
+
+  Future<void> _add() async {
+    final source = await AttachmentSourceSheet.show(context);
+    if (source == null) return;
+    final picked = await DocumentPickerService.instance.pick(source);
+    if (picked.error != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(picked.error!)));
+      return;
+    }
+    final a = picked.attachment;
+    if (a == null) return;
+    if (!mounted) return;
+    final data = await DocumentSaveSheet.show(
+      context,
+      a,
+      _titleFromFile(a.fileName),
+    );
+    if (data == null) return;
+    if (data.sensitive) {
+      final auth = await DocumentAuthService.instance.authenticate(
+        'Authenticate to save this sensitive document',
+      );
+      if (!auth.success) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(auth.message ?? 'Authentication failed.')),
+          );
+        return;
+      }
+    }
+    try {
+      await DocumentStorageService.instance.save(
+        attachment: a,
+        displayName: data.name,
+        category: data.category,
+        isSensitive: data.sensitive,
+        description: data.description,
+      );
+      _refresh();
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save this document securely.'),
+          ),
+        );
+    }
+  }
+
+  Future<void> _open(LifePilotDocument d) async {
+    if (d.isSensitive) {
+      final a = await DocumentAuthService.instance.authenticate(
+        'Authenticate to view this document',
+      );
+      if (!a.success) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(a.message ?? 'Authentication failed.')),
+          );
+        return;
+      }
+    }
+    if (!mounted) return;
+    final changed = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => DocumentDetailsScreen(document: d)),
+    );
+    if (changed == true) _refresh();
+  }
+
+  String _titleFromFile(String f) {
+    final base = f
+        .replaceFirst(RegExp(r'\.[^.]+$'), '')
+        .replaceAll(RegExp(r'[_-]+'), ' ');
+    return base
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: _searching
+          ? TextField(
+              controller: _search,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Search documents'),
+              onChanged: (_) => _refresh(),
+            )
+          : const Text('Important Documents'),
+      actions: [
+        IconButton(
+          icon: Icon(_searching ? Icons.close : Icons.search),
+          onPressed: () => setState(() => _searching = !_searching),
+        ),
+        IconButton(icon: const Icon(Icons.add), onPressed: _add),
+      ],
+    ),
+    body: _docs.isEmpty
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.folder_outlined, size: 72),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No important documents saved',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Store your Aadhaar, PAN card, certificates,\nmedical records and other important files securely.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _add,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Document'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        : ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: _docs.length,
+            itemBuilder: (_, i) =>
+                DocumentCard(document: _docs[i], onTap: () => _open(_docs[i])),
+          ),
+  );
+}

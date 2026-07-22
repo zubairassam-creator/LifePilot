@@ -14,16 +14,33 @@ class DocumentShareService {
 
   Future<File> _tempClearFile(LifePilotDocument doc) async {
     final dir = await getTemporaryDirectory();
-    final safeName = doc.originalFileName.replaceAll(RegExp(r'[^a-zA-Z0-9._ -]'), '_');
+    final safeName = doc.originalFileName.replaceAll(
+      RegExp(r'[^a-zA-Z0-9._ -]'),
+      '_',
+    );
     final file = File('${dir.path}/${doc.id}_$safeName');
-    await file.writeAsBytes(await DocumentEncryptionService.instance.decryptFile(doc.encryptedFilePath), flush: true);
-    Timer(const Duration(minutes: 5), () async { if (await file.exists()) await file.delete(); });
+    await file.writeAsBytes(
+      await DocumentEncryptionService.instance.decryptFile(
+        doc.encryptedFilePath,
+      ),
+      flush: true,
+    );
+    Timer(const Duration(minutes: 5), () async {
+      if (await file.exists()) await file.delete();
+    });
     return file;
   }
 
   Future<void> share(LifePilotDocument doc) async {
     final file = await _tempClearFile(doc);
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: doc.mimeType, name: doc.originalFileName)], text: doc.displayName));
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [
+          XFile(file.path, mimeType: doc.mimeType, name: doc.originalFileName),
+        ],
+        text: doc.displayName,
+      ),
+    );
   }
 
   Future<void> openWith(LifePilotDocument doc) async {

@@ -7,6 +7,13 @@ class InputNormalizer {
     text = text.replaceAll(RegExp(r"\b(what's|whats)\b"), 'what is');
     text = text.replaceAll(RegExp(r"\b(today's|todays)\b"), 'today');
     text = text.replaceAll(RegExp(r"\b(tomorrow's|tomorrows)\b"), 'tomorrow');
+    text = text.replaceAll(RegExp(r'\b(aadhar|adhar)\b'), 'aadhaar');
+    text = text.replaceAll(RegExp(r'\buid card\b'), 'aadhaar card');
+    text = text.replaceAll(RegExp(r'\bpancard\b'), 'pan card');
+    text = text.replaceAll(RegExp(r'\bdriving license\b'), 'driving licence');
+    text = text.replaceAll(RegExp(r'\bdrivers? license\b'), 'driving licence');
+    text = text.replaceAll(RegExp(r'\bdl\b'), 'driving licence');
+    text = text.replaceAll(RegExp(r'\bvoter card\b'), 'voter id');
     text = text.replaceAll(RegExp(r"\bdont\b"), "don't");
     text = text.replaceAll(RegExp(r"\bto do\b"), 'todo');
     text = text.replaceAll(RegExp(r"\bshed ule\b"), 'schedule');

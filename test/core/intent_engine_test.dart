@@ -29,9 +29,14 @@ void main() {
     const engine = IntentEngine();
 
     expect(engine.recognize('tasks').intent, SecretaryIntent.openTasks);
-    expect(engine.recognize('clear completed').intent, SecretaryIntent.deleteTasks);
-    expect(engine.recognize('remind me to call Sam tomorrow').intent,
-        SecretaryIntent.createReminder);
+    expect(
+      engine.recognize('clear completed').intent,
+      SecretaryIntent.deleteTasks,
+    );
+    expect(
+      engine.recognize('remind me to call Sam tomorrow').intent,
+      SecretaryIntent.createReminder,
+    );
     expect(engine.recognize('what can you do').intent, SecretaryIntent.help);
   });
 }

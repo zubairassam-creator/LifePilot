@@ -10,11 +10,18 @@ class DateTimeInterpreter {
     if (lower.contains('today')) return base;
     if (lower.contains('tomorrow')) return base.add(const Duration(days: 1));
 
-    final inMonths = RegExp(r'\bin (\d+|one|two|three|four|five|six) months?\b')
-        .firstMatch(lower);
+    final inMonths = RegExp(
+      r'\bin (\d+|one|two|three|four|five|six) months?\b',
+    ).firstMatch(lower);
     if (inMonths != null) {
       final months = _number(inMonths.group(1)!);
-      return DateTime(now.year, now.month + months, now.day, now.hour, now.minute);
+      return DateTime(
+        now.year,
+        now.month + months,
+        now.day,
+        now.hour,
+        now.minute,
+      );
     }
 
     final monthDay = RegExp(
@@ -31,8 +38,9 @@ class DateTimeInterpreter {
   DateTime? dateTimeFromText(String text) {
     final date = dateFromText(text);
     if (date == null) return null;
-    final match = RegExp(r'\b(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b')
-        .firstMatch(text.toLowerCase());
+    final match = RegExp(
+      r'\b(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b',
+    ).firstMatch(text.toLowerCase());
     if (match == null) return date;
     var hour = int.parse(match.group(1)!);
     final minute = int.tryParse(match.group(2) ?? '0') ?? 0;
@@ -43,13 +51,27 @@ class DateTimeInterpreter {
   }
 
   int _number(String value) => switch (value) {
-        'one' => 1, 'two' => 2, 'three' => 3, 'four' => 4, 'five' => 5,
-        'six' => 6, _ => int.parse(value),
-      };
+    'one' => 1,
+    'two' => 2,
+    'three' => 3,
+    'four' => 4,
+    'five' => 5,
+    'six' => 6,
+    _ => int.parse(value),
+  };
 
   int _month(String name) => const {
-        'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5,
-        'june': 6, 'july': 7, 'august': 8, 'september': 9,
-        'october': 10, 'november': 11, 'december': 12,
-      }[name]!;
+    'january': 1,
+    'february': 2,
+    'march': 3,
+    'april': 4,
+    'may': 5,
+    'june': 6,
+    'july': 7,
+    'august': 8,
+    'september': 9,
+    'october': 10,
+    'november': 11,
+    'december': 12,
+  }[name]!;
 }

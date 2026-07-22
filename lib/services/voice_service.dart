@@ -4,6 +4,8 @@ class VoiceService {
   static final FlutterTts _flutterTts = FlutterTts();
 
   static Future<void> initialize() async {
+    await _flutterTts.awaitSpeakCompletion(true);
+    await _flutterTts.setLanguage('en-IN');
     await _flutterTts.setSpeechRate(0.5);
     await _flutterTts.setPitch(1.0);
     await _flutterTts.setVolume(1.0);

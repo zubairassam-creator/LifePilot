@@ -5,7 +5,9 @@ void main() {
   test('interprets future month-day dates without inventing past years', () {
     final interpreter = DateTimeInterpreter(now: DateTime(2026, 7, 18));
 
-    final date = interpreter.dateFromText('My bike pollution expires on November 2nd');
+    final date = interpreter.dateFromText(
+      'My bike pollution expires on November 2nd',
+    );
 
     expect(date, DateTime(2026, 11, 2));
   });
@@ -13,7 +15,9 @@ void main() {
   test('interprets reminder date and time', () {
     final interpreter = DateTimeInterpreter(now: DateTime(2026, 7, 18, 9));
 
-    final date = interpreter.dateTimeFromText('Remind me tomorrow at 8 PM to call the bank');
+    final date = interpreter.dateTimeFromText(
+      'Remind me tomorrow at 8 PM to call the bank',
+    );
 
     expect(date, DateTime(2026, 7, 19, 20));
   });

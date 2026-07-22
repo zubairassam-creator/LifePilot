@@ -21,7 +21,15 @@ enum SecretaryIntent {
   unknown,
 }
 
-enum ScheduleScope { today, tomorrow, thisWeek, upcoming, completed, missed, all }
+enum ScheduleScope {
+  today,
+  tomorrow,
+  thisWeek,
+  upcoming,
+  completed,
+  missed,
+  all,
+}
 
 enum DeletionScope { completed, missed, all, unknown }
 

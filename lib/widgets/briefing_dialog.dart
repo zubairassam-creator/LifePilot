@@ -4,10 +4,7 @@ import '../models/lifepilot_task.dart';
 import '../services/task_storage_service.dart';
 import '../services/voice_service.dart';
 
-enum BriefingDialogMode {
-  daily,
-  schedule,
-}
+enum BriefingDialogMode { daily, schedule }
 
 Future<void> showBriefingDialog(
   BuildContext context, {
@@ -62,11 +59,19 @@ Future<void> showBriefingDialog(
               ),
               if (briefing.dueToday.isEmpty && briefing.missed.isEmpty) ...[
                 const SizedBox(height: 16),
-                const Text('No tasks exist for today. You are clear to plan your next priority.'),
+                const Text(
+                  'No tasks exist for today. You are clear to plan your next priority.',
+                ),
               ] else ...[
                 const SizedBox(height: 16),
-                _TaskSection(title: 'Pending today', tasks: briefing.pendingToday),
-                _TaskSection(title: 'Completed today', tasks: briefing.completedToday),
+                _TaskSection(
+                  title: 'Pending today',
+                  tasks: briefing.pendingToday,
+                ),
+                _TaskSection(
+                  title: 'Completed today',
+                  tasks: briefing.completedToday,
+                ),
                 _TaskSection(title: 'Missed tasks', tasks: briefing.missed),
               ],
             ],
@@ -102,18 +107,24 @@ class _TodayBriefing {
 
   factory _TodayBriefing.fromTasks(List<LifePilotTask> tasks) {
     final now = DateTime.now();
-    final dueToday = tasks.where((task) => _isDueToday(task, now)).toList()..sort(_compareTasks);
-    final completedToday = dueToday.where((task) => task.status == TaskStatus.completed).toList();
-    final pendingToday = dueToday.where((task) => task.status == TaskStatus.pending).toList();
-    final missed = tasks
-        .where(
-          (task) =>
-              task.status != TaskStatus.completed &&
-              task.dueDateTime != null &&
-              task.dueDateTime!.isBefore(now),
-        )
-        .toList()
+    final dueToday = tasks.where((task) => _isDueToday(task, now)).toList()
       ..sort(_compareTasks);
+    final completedToday = dueToday
+        .where((task) => task.status == TaskStatus.completed)
+        .toList();
+    final pendingToday = dueToday
+        .where((task) => task.status == TaskStatus.pending)
+        .toList();
+    final missed =
+        tasks
+            .where(
+              (task) =>
+                  task.status != TaskStatus.completed &&
+                  task.dueDateTime != null &&
+                  task.dueDateTime!.isBefore(now),
+            )
+            .toList()
+          ..sort(_compareTasks);
 
     return _TodayBriefing(
       now: now,
@@ -126,7 +137,11 @@ class _TodayBriefing {
 }
 
 class _BriefingMetricRow extends StatelessWidget {
-  const _BriefingMetricRow({required this.icon, required this.label, required this.value});
+  const _BriefingMetricRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   final IconData icon;
   final String label;
@@ -201,9 +216,14 @@ String _buildSpokenBriefing(_TodayBriefing briefing, BriefingDialogMode mode) {
   ];
 
   if (briefing.dueToday.isEmpty && briefing.missed.isEmpty) {
-    parts.add('No tasks exist for today. You are clear to plan your next priority.');
-  } else if (mode == BriefingDialogMode.schedule && briefing.pendingToday.isNotEmpty) {
-    parts.add('Your pending schedule is ${_join(briefing.pendingToday.map(_taskSummary))}.');
+    parts.add(
+      'No tasks exist for today. You are clear to plan your next priority.',
+    );
+  } else if (mode == BriefingDialogMode.schedule &&
+      briefing.pendingToday.isNotEmpty) {
+    parts.add(
+      'Your pending schedule is ${_join(briefing.pendingToday.map(_taskSummary))}.',
+    );
   }
 
   return parts.join(' ');
