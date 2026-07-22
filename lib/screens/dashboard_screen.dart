@@ -6,6 +6,8 @@ import 'important_documents_screen.dart';
 import 'my_tasks_screen.dart';
 import 'password_vault_screen.dart';
 import 'secretary_screen.dart';
+import 'secure_memory_screen.dart';
+import 'smart_contacts_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -29,7 +31,18 @@ class DashboardScreen extends StatelessWidget {
           );
         },
       ),
-      const _DashboardModule(icon: Icons.note_alt, title: 'Memory Notes'),
+      _DashboardModule(
+        icon: Icons.note_alt,
+        title: 'Secure Memory',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SecureMemoryScreen(),
+            ),
+          );
+        },
+      ),
       _DashboardModule(
         icon: Icons.folder,
         title: 'Important Documents',
@@ -42,7 +55,18 @@ class DashboardScreen extends StatelessWidget {
           );
         },
       ),
-      const _DashboardModule(icon: Icons.contacts, title: 'Contacts'),
+      _DashboardModule(
+        icon: Icons.contacts,
+        title: 'Smart Contacts',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SmartContactsScreen(),
+            ),
+          );
+        },
+      ),
       _DashboardModule(
         icon: Icons.auto_awesome,
         title: 'AI Assistant',
